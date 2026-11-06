@@ -4,7 +4,7 @@
 //  - Modeller, dokular, Three.js (CDN), fontlar: önce önbellek → hızlı ve internetsiz
 //  Yeni sürüm yayınlayınca VERSION'ı artır.
 // =====================================================
-const VERSION = 'kemik-20261107-011217';
+const VERSION = 'kemik-20261107-011723';
 const CORE = ['./', './index.html', './style.css', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -29,7 +29,8 @@ self.addEventListener('fetch', e => {
 
   if (sameOrigin && isCode(url)) {
     // Önce ağ (güncel kod), çevrimdışıysa önbellek
-    e.respondWith(fetch(req).then(res => {
+    // cache:'no-cache' → tarayıcının HTTP önbelleğini atla (GitHub Pages 10 dk önbellekliyor), güncellemeler hemen gelsin
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req).then(r => r || caches.match('./index.html'))));
