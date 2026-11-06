@@ -584,3 +584,15 @@ body.ctrlEdit #hint { display: none; }
 #ctrlPanel .cpSeg span { font-size: var(--fs-sm); color: var(--bone-100); }
 #ctrlPanel .cpSeg button, #ctrlPanel .cpRow button { flex: 1; }
 #ctrlPanel .cpSeg button.on, #ctrlPanel button.done { background: linear-gradient(180deg, var(--gold-300), var(--gold-600)); border-color: var(--gold-200); color: #3a1c05; }
+/* ---------- "Telefona Yükle" butonu + rehber ---------- */
+.installWrap { display: flex; justify-content: center; margin: 4px 0 2px; }
+.installWrap.hidden { display: none; }
+#installBtn { padding: 8px 16px !important; font-size: 15px !important; border-radius: 999px !important;
+  background: linear-gradient(180deg, #5fd4ff, #2f8fd8) !important; color: #06233a !important; border: 0 !important;
+  box-shadow: 0 4px 0 #1b5f94, 0 0 16px rgba(95,212,255,.35) !important; animation: installPulse 2.4s ease-in-out infinite; }
+@keyframes installPulse { 50% { box-shadow: 0 4px 0 #1b5f94, 0 0 26px rgba(95,212,255,.6); } }
+@media (prefers-reduced-motion: reduce) { #installBtn { animation: none; } }
+.installSteps { text-align: left; font-size: 15px; line-height: 1.55; }
+.installSteps p { margin: 6px 0; }
+.installSteps .ic { display: inline-block; padding: 0 6px; border-radius: 6px; background: rgba(255,255,255,.12); }
+.installSteps .note { color: var(--muted, #b8aec4); font-size: 13px; }

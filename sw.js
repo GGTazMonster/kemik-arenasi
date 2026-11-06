@@ -4,7 +4,7 @@
 //  - Modeller, dokular, Three.js (CDN), fontlar: önce önbellek → hızlı ve internetsiz
 //  Yeni sürüm yayınlayınca VERSION'ı artır.
 // =====================================================
-const VERSION = 'kemik-20261106-233832';
+const VERSION = 'kemik-20261107-011217';
 const CORE = ['./', './index.html', './style.css', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
