@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1622">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kemik Arenası">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  // Uygulama gibi yükleme + internetsiz çalışma (sadece HTTPS'te, ör. GitHub Pages)
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+<title>Kemik Arenası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Başlık/sayı: Lilita One (Türkçe ş ğ ı İ ç ö ü destekli, latin-ext) · Gövde: Nunito -->
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+
+<!-- ============ OYUN İÇİ GÖSTERGELER ============ -->
+<div id="hud" class="hidden">
+  <div id="xpBar"><div id="xpFill"></div><span id="lvlTxt">Sv. 1</span></div>
+
+  <div id="leftTop">
+    <div id="hpBar"><div id="hpFill"></div><span id="hpTxt">100 / 100</span></div>
+    <div id="dashBar" title="Atılma"><div id="dashFill"></div></div>
+    <div id="buffs"></div>
+  </div>
+
+  <div id="rightTop">
+    <div id="waveTxt">Dalga 1</div>
+    <div id="waveSub">Kalan: 0</div>
+    <div class="row">
+      <span title="Süre">⏱ <b id="timeTxt">0:00</b></span>
+      <span title="Devrilen iskelet">💀 <b id="killTxt">0</b></span>
+      <span title="Bu koşuda toplanan altın">🪙 <b id="goldTxt">0</b></span>
+    </div>
+  </div>
+
+  <div id="combo" class="hidden"><b id="comboN">0</b><span>SERİ</span></div>
+
+  <div id="bossWrap" class="hidden">
+    <div id="bossName">Kemik Devi</div>
+    <div id="bossBar"><div id="bossFill"></div></div>
+  </div>
+
+  <div id="upgradeBar"></div>
+  <div id="banner"></div>
+  <div id="hint"><span class="kbHint">Saldırı otomatik · <b>WASD</b> hareket · <b>Boşluk</b> atılma · <b>E</b> Süper · <b>Esc</b> duraklat</span><span class="touchHint">Saldırı otomatik · <b>Sola dokun ve sürükle</b>: hareket · <b>💨</b>: atılma · <b>Parlayan düğme</b>: Süper</span></div>
+  <button id="superHud" title="Süper (E / Q)"><span id="superIc">💥</span><kbd>E</kbd></button>
+  <button id="pauseBtn" title="Duraklat (Esc)">⏸</button>
+  <button id="speedBtn" title="Oyun hızı (T)">⏩ 1x</button>
+  <div id="hurt"></div>
+</div>
+<div id="dmgLayer"></div>
+<div id="fps" class="hidden"></div>
+<div id="toast"></div>
+
+<!-- ============ ANA MENÜ ============ -->
+<div id="menu" class="overlay">
+  <div class="card" id="mMain">
+    <!-- Sol (mobilde alt): başlık + menü butonları -->
+    <div class="homeMenu">
+      <div class="logo">💀</div>
+      <h1>Kemik Arenası</h1>
+      <div class="testBadge">🧪 TEST MODU</div>
+      <p class="sub">İskeletler topraktan yükseliyor. Kahramanını seç, dalgalara dayan, güçlen, tekrar dene.</p>
+      <div class="goldPill">🪙 <b class="goldAmt">0</b> altın</div>
+      <button class="primary" data-go="play" id="playBtn" disabled>Yükleniyor…</button>
+      <small id="playNote" class="playNote"></small>
+      <button data-go="mShop"><i class="bi">⬆️</i><span class="lg">Kalıcı Geliştirmeler</span><span class="sm">Geliştirme</span></button>
+      <button data-go="mQuests"><i class="bi">📜</i><span class="lg">Görevler</span><span class="sm">Görevler</span> <span id="questBadge" class="badge hidden"></span></button>
+      <button data-go="mHelp"><i class="bi">❓</i><span class="lg">Nasıl Oynanır</span><span class="sm">Rehber</span></button>
+      <button data-go="mStats"><i class="bi">📊</i><span class="lg">İstatistikler</span><span class="sm">İstatistik</span></button>
+      <button data-go="mSettings"><i class="bi">⚙️</i><span class="lg">Ayarlar</span><span class="sm">Ayarlar</span></button>
+    </div>
+    <!-- Sağ (mobilde üst): 3B karakter vitrini + seçili kahraman bilgisi + seçim şeridi -->
+    <div class="homeHero">
+      <div id="heroStage"></div>
+      <div id="heroInfo"></div>
+      <div id="heroStrip"></div>
+    </div>
+  </div>
+
+  <div class="card wide hidden" id="mQuests">
+    <h2>Görevler</h2>
+    <p class="sub">Görevleri tamamla, altın kazan ve yeni kahramanların kilidini aç.</p>
+    <div id="questList"></div>
+    <button data-go="mMain">Geri</button>
+  </div>
+
+  <div class="card wide hidden" id="mShop">
+    <h2>Kalıcı Geliştirmeler</h2>
+    <p class="sub">Koşularda topladığın altınla kalıcı güç satın al. Bunlar her koşuda geçerli.</p>
+    <div class="goldPill">🪙 <b class="goldAmt">0</b> altın</div>
+    <div id="shopList"></div>
+    <button data-go="mMain">Geri</button>
+  </div>
+
+  <!-- Kahramana özel yetenekler: game.js openHeroTalents(heroId) ile açılır -->
+  <div class="card wide hidden" id="mTalents">
+    <h2 id="talentTitle">Kahraman Seviyesi</h2>
+    <p class="sub">Altınla kahramanını seviye seviye geliştir: her kahramanın kendine özgü bir yolu, silah görünümü, saldırı değişimi ve Süper ustalığı var.</p>
+    <div id="talentTabs" class="talentTabs"></div>
+    <div class="goldPill">🪙 <b class="goldAmt">0</b> altın</div>
+    <div id="talentWarn" class="talentWarn hidden"></div>
+    <div id="lvlHead" class="lvlHead"></div>
+    <div id="lvlPath" class="lvlPath"></div>
+    <div id="lvlNext" class="lvlNext"></div>
+    <h3>Mevcut kazanımlar</h3>
+    <div id="talentList"></div>
+    <small id="talentSpent" class="talentSpent"></small>
+    <button data-go="mMain">Geri</button>
+  </div>
+
+  <div class="card wide hidden" id="mHelp">
+    <h2>Nasıl Oynanır</h2>
+    <div class="help">
+      <div><b>🎮 Kontroller</b><br>WASD / ok tuşları: hareket · Boşluk / Shift: atılma (kısa süre hasar almazsın) · Esc / P: duraklat</div>
+      <div><b>⚔️ Saldırı</b><br>Kahramanın menzildeki en yakın iskelete <b>otomatik</b> saldırır. Sen sadece konumunu iyi seç. Yakın dövüşçülerde etrafındaki soluk halka saldırı menzilini gösterir.</div>
+      <div><b>⬆️ Kahraman seviyesi</b><br>Ana menüde kahramanını seçip <b>⬆️ Geliştir</b>'e bas. Altınla Sv. 1'den 20'ye çıkar: her kahramanın kendine özgü bir yolu var. Sv. 5 imza yetenek, Sv. 10 yeni silah görünümü, Sv. 15 saldırı değişimi, Sv. 20 Süper ustalığı.</div>
+      <div><b>💥 Süper yetenek</b><br>Öldürdükçe ve hasar aldıkça Süper çubuğu dolar. Dolunca <b>E</b> ya da <b>Q</b> (mobilde ⚡ butonu) ile kullan: Şövalye Kalkan Hücumu · Barbar Kasırga · Büyücü Meteor Yağmuru · Okçu Ok Yağmuru · Haydut Gölge Dansı.</div>
+      <div><b>💎 Tecrübe ve seviye</b><br>Ölen iskeletler tecrübe taşı bırakır. Taşları toplayıp seviye atla, her seviyede 3 güçlendirmeden birini seç. Bunlar <b>geçici</b>, koşu bitince sıfırlanır.</div>
+      <div><b>🧪 Süreli güçlendirmeler</b><br>Bazen yere iksir veya parlayan taşlar düşer: 🧪 can · 🔥 öfke (2x saldırı hızı) · 💨 rüzgar (hız) · 🌟 kutsal kalkan (hasar almazsın) · 🧲 mıknatıs.</div>
+      <div><b>🪙 Altın</b><br>Altınlar koşu bitince kasana eklenir. Ana menüdeki <b>Kalıcı Geliştirmeler</b>'den güç, can, zırh gibi kalıcı bonuslar al.</div>
+      <div><b>🏆 Hedef</b><br>20 dalga boyunca dayan ve son dalgadaki <b>Kemik Kral</b>'ı devir. Kazanınca istersen sonsuz modda devam edebilirsin.</div>
+      <div><b>⭐ Elitler ve sandıklar</b><br>Altın halkalı iskeletler elittir: güçlüdür ama <b>hazine sandığı</b> düşürürler. Sandıktan güçlendirme ya da silah evrimi çıkar.</div>
+      <div><b>🌪️ Silah evrimi</b><br>Bir silahı 5. seviyeye çıkar ve eşleşen pasife sahip ol: Hançer + Kritik, Kalkanlar + Demir Yürek, Kutsal Dalga + Yenilenme.</div>
+      <div><b>💀 Düşmanlar</b><br>Minion: sıradan · Savaşçı: kalkanlı, dayanıklı (2. dalga) · Haydut: çok hızlı (3. dalga) · Büyücü: uzaktan büyü atar (4. dalga). İskeletler arenanın <b>kapılarından</b> akın eder; parlayan kapı yeni akını haber verir.</div>
+      <div><b>👹 Boss'lar</b><br>Dalga 5 <b>Kemik Devi</b> · Dalga 10 <b>Kemik Nekromantı</b> · Dalga 15 <b>Gölge Haydut</b> · Dalga 20 <b>Kemik Kral</b>. Her saldırıdan önce yerde kırmızı uyarı belirir: alandan çık ya da <b>atılarak</b> içinden geç. Mor alanlar zararsızdır (büyü/ışınlanma işareti).</div>
+    </div>
+    <button data-go="mMain">Geri</button>
+  </div>
+
+  <div class="card hidden" id="mStats">
+    <h2>İstatistikler</h2>
+    <div id="statsList" class="statList"></div>
+    <button data-go="mMain">Geri</button>
+  </div>
+
+  <div class="card hidden" id="mSettings">
+    <h2>Ayarlar</h2>
+    <div class="setting">
+      <label>Grafik kalitesi</label>
+      <div class="seg" id="qualitySeg">
+        <button data-q="dusuk">Düşük</button><button data-q="orta">Orta</button><button data-q="yuksek">Yüksek</button>
+      </div>
+      <small>Oyun kasıyorsa Düşük'ü dene. Düşük: gölge yok, daha az iskelet aynı anda.</small>
+    </div>
+    <div class="setting row2"><label for="soundChk">Ses</label><input type="checkbox" id="soundChk"></div>
+    <div class="setting row2"><label for="volRange">Ses seviyesi</label><input type="range" id="volRange" min="0" max="1" step="0.05"></div>
+    <div class="setting row2"><label for="fpsChk">FPS göstergesi</label><input type="checkbox" id="fpsChk"></div>
+    <div class="setting row2"><label for="autoQChk">Kasarsa kaliteyi otomatik düşür</label><input type="checkbox" id="autoQChk"></div>
+    <div class="setting row2"><label for="testChk">🧪 Test Modu <small>(ayrı kayıt: tüm kahramanlar açık, sınırsız altın — gerçek ilerlemen etkilenmez)</small></label><input type="checkbox" id="testChk"></div>
+    <button id="ctrlEditBtn">🎮 Kontrolleri düzenle</button>
+    <button id="resetBtn" class="danger">İlerlemeyi sıfırla</button>
+    <button data-go="mMain">Geri</button>
+  </div>
+</div>
+
+<!-- ============ SEVİYE ATLAMA ============ -->
+<div id="levelUp" class="overlay hidden">
+  <div class="card wide">
+    <h2>Seviye <span id="luLevel">2</span>!</h2>
+    <p class="sub">Bir güçlendirme seç (1 · 2 · 3)</p>
+    <div id="choices"></div>
+    <div class="actions"><button id="rerollBtn">🎲 Yeniden seç (<span id="rerollN">0</span>) · R</button></div>
+  </div>
+</div>
+
+<!-- ============ DURAKLAT ============ -->
+<div id="pause" class="overlay hidden">
+  <div class="card wide">
+    <h2>Duraklatıldı</h2>
+    <div class="pauseGrid">
+      <div><h3 id="pauseHero">Kahraman</h3><div id="pauseStats" class="statList"></div></div>
+      <div><h3>Güçlendirmeler</h3><div id="pauseUps" class="statList"></div></div>
+    </div>
+    <div class="actions">
+      <button id="resumeBtn" class="primary">Devam et</button>
+      <button id="quitBtn">Ana menüye dön</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HAZİNE SANDIĞI ============ -->
+<div id="chest" class="overlay hidden">
+  <div class="card">
+    <h2>📦 Hazine Sandığı!</h2>
+    <div id="chestReel">❔</div>
+    <div id="chestRewards" class="statList"></div>
+    <div class="actions"><button id="chestBtn" class="primary hidden">Topla (Boşluk)</button></div>
+  </div>
+</div>
+
+<!-- ============ ZAFER ============ -->
+<div id="victory" class="overlay hidden">
+  <div class="card">
+    <div class="logo">👑</div>
+    <h1>ZAFER!</h1>
+    <p class="sub">Kemik Kral devrildi. Arena artık senin.</p>
+    <div id="victoryStats" class="statList"></div>
+    <div class="goldPill big" id="victoryGold"></div>
+    <div class="actions">
+      <button id="endlessBtn" class="primary">Sonsuz moda devam et</button>
+      <button id="victoryEndBtn">Zaferi kaydet ve bitir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OYUN SONU ============ -->
+<div id="over" class="overlay hidden">
+  <div class="card">
+    <h2>Düştün!</h2>
+    <div id="overStats" class="statList"></div>
+    <div class="goldPill big" id="overGold"></div>
+    <div id="overQuests"></div>
+    <div class="actions">
+      <button id="againBtn" class="primary">Tekrar oyna</button>
+      <button id="overMenuBtn">Ana menü</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KONTROL DÜZENLEME (Ayarlar > Kontrolleri düzenle) ============ -->
+<div id="ctrlPanel" class="hidden">
+  <b class="cpTitle">🎮 Kontrolleri düzenle</b>
+  <small>Düğmeleri parmağınla sürükleyip istediğin yere bırak.</small>
+  <label>Düğme boyutu <input type="range" id="ctrlScale" min="0.7" max="1.4" step="0.05"></label>
+  <label>Joystick boyutu <input type="range" id="ctrlJoy" min="0.7" max="1.5" step="0.05"></label>
+  <div class="cpSeg" id="ctrlSide"><span>Joystick:</span><button data-side="left">⬅ Sol</button><button data-side="right">Sağ ➡</button></div>
+  <div class="cpRow"><button id="ctrlReset">Varsayılana dön</button><button id="ctrlDone" class="done">✔ Bitti</button></div>
+</div>
+
+<script src="ui-fx.js" defer></script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
