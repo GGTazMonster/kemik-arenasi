@@ -832,12 +832,10 @@ body.touch #joyBase { background: radial-gradient(circle, #3b2650 0, #261046 60%
 }
 /* Oyun sonu istatistik satırları: ikonlar (sıra: kahraman, dalga, süre, öldürme, seviye, ...) */
 #overStats div { gap: 10px; }
-#overStats div span:first-child::before { content: ""; display: inline-block; vertical-align: middle; width: 26px; height: 26px; margin: -3px 10px 0 0; background: center / contain no-repeat; }
-#overStats div:nth-child(1) span:first-child::before { background-image: url(assets/ui/i-badge.png); }
-#overStats div:nth-child(2) span:first-child::before { background-image: url(assets/ui/i-chest.png); }
-#overStats div:nth-child(3) span:first-child::before { background-image: url(assets/ui/i-time.png); }
-#overStats div:nth-child(4) span:first-child::before { background-image: url(assets/ui/i-skull.png); }
-#overStats div:nth-child(n+5) span:first-child::before { background-image: url(assets/ui/i-gem.png); }
+#overStats > div span:first-child::before { content: ""; display: inline-block; vertical-align: middle; width: 26px; height: 26px; margin: -3px 10px 0 0; background: center / contain no-repeat; }
+#overStats > div:nth-child(1) span:first-child::before { background-image: url(assets/ui/i-badge.png); }
+#overStats > div:nth-child(2) span:first-child::before { background-image: url(assets/ui/i-time.png); }
+#overStats > div:nth-child(3) span:first-child::before { background-image: url(assets/ui/i-skull.png); }
 #over .goldPill::before { content: ""; display: inline-block; vertical-align: middle; width: 26px; height: 26px; margin: -4px 8px 0 0; background: url(assets/ui/i-coins.png) center / contain no-repeat; }
 #over .goldPill small { color: #e6d4ff; }
 /* Kart taşan süsü (kafatası) kırpmasın: kaydırma iç listelerde */
@@ -964,3 +962,11 @@ body.touch #rightTop .row span { display: flex; align-items: center; gap: 4px; p
 body.touch #rightTop .row span::before, body.touch #rightTop .row span::after { display: none !important; }
 body.touch #rightTop .row img { width: 16px !important; height: 16px !important; }
 body.touch #rightTop .row b { font-size: 12px !important; }
+
+/* Katlanır "Ayrıntılar" (oyun sonu, zafer, duraklat) + duraklattan açılan Ayarlar */
+details.more { margin-top: 6px; border: 1px solid #e8b24a55; border-radius: 10px; background: #160a2699; }
+details.more > summary { cursor: pointer; list-style: none; padding: 7px 12px; font-family: var(--font-display); font-size: 14px; color: var(--g-gold1, #ffe9a8); text-align: center; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more[open] > summary { border-bottom: 1px solid #e8b24a33; }
+details.more .statList { padding: 4px 8px 8px; max-height: 38vh; overflow-y: auto; }
+body.pauseSet #resetBtn, body.pauseSet #ctrlEditBtn, body.pauseSet #mSettings .setting:has(#testChk) { display: none; }

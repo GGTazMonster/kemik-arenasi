@@ -1655,10 +1655,8 @@ function showVictory() {
   sfx.victory(); playMusic('zafer');
   const bonus = Math.round(150 * run.s.goldMult);
   run.gold += bonus;
-  $('victoryStats').innerHTML = rows([
-    ['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`], ['Süre', fmtTime(run.time)], ['Devrilen iskelet', run.kills],
-    ['Seviye', run.level], ['En uzun seri', run.bestCombo],
-  ]);
+  $('victoryStats').innerHTML = rows([['Süre', fmtTime(run.time)], ['Devrilen iskelet', run.kills]])
+    + more([['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`], ['Seviye', run.level], ['En uzun seri', run.bestCombo]]);
   $('victoryGold').innerHTML = `🪙 Zafer bonusu +${bonus} altın`;
   ui.victory.classList.remove('hidden');
   checkQuests();
@@ -1700,12 +1698,14 @@ function endRun() {
   persist();
   checkQuests();
   ui.over.querySelector('h2').textContent = run.won ? '👑 Zafer kaydedildi!' : 'Düştün!';
+  // Temel bilgiler görünür; geri kalanı "Ayrıntılar" altında (ekran kısa kalsın, kaydırma gerekmesin)
   $('overStats').innerHTML = rows([
-    ['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`],
-    ['Ulaşılan dalga', run.wave + (newBest ? ' 🏆 rekor!' : '')], ['Süre', fmtTime(run.time)], ['Devrilen iskelet', run.kills],
-    ['Seviye', run.level], ['En uzun seri', run.bestCombo], ['Verilen toplam hasar', Math.round(run.dmgDealt).toLocaleString('tr-TR')],
+    ['Ulaşılan dalga', run.wave + (newBest ? ' 🏆' : '')], ['Süre', fmtTime(run.time)], ['Devrilen iskelet', run.kills],
+  ]) + more([
+    ['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`], ['Seviye', run.level], ['En uzun seri', run.bestCombo],
+    ['Verilen toplam hasar', Math.round(run.dmgDealt).toLocaleString('tr-TR')], ['Altın', `toplanan ${run.gold} + dalga bonusu ${bonus}`],
   ].concat(damageRows()));
-  $('overGold').innerHTML = `🪙 +${earned} altın <small>(toplanan ${run.gold} + dalga bonusu ${bonus})</small>`;
+  $('overGold').innerHTML = `🪙 +${earned} altın`;
   $('overQuests').innerHTML = run.newQuests.map(q => `<div>✅ ${q.text} → ${rewardText(q.reward)}</div>`).join('');
   ui.over.classList.remove('hidden');
   ui.hud.classList.add('hidden');
@@ -1713,6 +1713,8 @@ function endRun() {
 }
 
 const rows = list => list.map(([a, b]) => `<div><span>${a}</span><span>${b}</span></div>`).join('');
+// Katlanır ayrıntılar: dokununca açılır
+const more = list => list.length ? `<details class="more"><summary>📊 Ayrıntılar</summary><div class="statList">${rows(list)}</div></details>` : '';
 
 function togglePause() {
   if (state === 'play') {
@@ -1721,12 +1723,12 @@ function togglePause() {
     const S = run.s;
     $('pauseHero').textContent = `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`;
     $('pauseStats').innerHTML = rows([
-      ['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`],
-      ['Can', `${Math.ceil(player.hp)} / ${Math.round(S.maxHp)}`], ['Saldırı hasarı', S.atkDmg.toFixed(1)],
-      ['Saldırı aralığı', S.interval.toFixed(2) + ' sn'], ['Menzil', S.range.toFixed(2)], ['Hareket hızı', S.speed.toFixed(2)],
+      ['Can', `${Math.ceil(player.hp)} / ${Math.round(S.maxHp)}`], ['Saldırı hasarı', S.atkDmg.toFixed(1)], ['Hareket hızı', S.speed.toFixed(2)],
+    ]) + more([
+      ['Saldırı aralığı', S.interval.toFixed(2) + ' sn'], ['Menzil', S.range.toFixed(2)],
       ['Kritik şansı', '%' + Math.round(S.crit * 100)], ['Can yenileme', S.regen.toFixed(1) + ' /sn'], ['Zırh', '%' + Math.round(S.armor * 100)],
       ['Toplama alanı', S.magnet.toFixed(1)], ['Yeniden seçim hakkı', run.rerolls],
-    ].concat(TAL.talentRows(run.hero)));   // aktif kalıcı yetenekler
+    ].concat(TAL.talentRows(run.hero)));   // aktif kalıcı yetenekler (katlanır)
     const ups = UPGRADES.filter(u => run.up[u.id]);
     const evRows = EVOS.filter(ev => run.evo[ev.id]).map(ev => [`${ev.icon} ${ev.name}`, 'EVRİM ★']);
     const hints = EVOS.filter(ev => !run.evo[ev.id] && run.up[ev.base]).map(ev => {
@@ -1736,6 +1738,7 @@ function togglePause() {
     $('pauseUps').innerHTML = ups.length ? rows(ups.map(u => [`${u.icon} ${u.name}`, `${run.up[u.id]} / ${u.max}`]).concat(evRows, hints)) : '<div><span>Henüz yok, seviye atla!</span><span></span></div>';
     ui.pause.classList.remove('hidden');
   } else if (state === 'paused') {
+    if (pauseSettings) closePauseSettings(false);
     ui.pause.classList.add('hidden');
     state = 'play';
   }
@@ -1764,6 +1767,17 @@ $('testChk').onchange = e => {
 if (TEST_MODE) document.body.classList.add('testMode');
 $('resumeBtn').onclick = () => { sfx.click(); togglePause(); };
 $('quitBtn').onclick = () => { sfx.click(); ui.pause.classList.add('hidden'); endRun(); };
+// Duraklatınca Ayarlar: menüdeki Ayarlar kartı açılır, Geri ile duraklat ekranına dönülür
+let pauseSettings = false;
+function closePauseSettings(back) {
+  pauseSettings = false; document.body.classList.remove('pauseSet');
+  ui.menu.classList.add('hidden');
+  if (back) ui.pause.classList.remove('hidden');
+}
+if ($('pauseSetBtn')) $('pauseSetBtn').onclick = () => {
+  sfx.click(); pauseSettings = true; document.body.classList.add('pauseSet');
+  ui.pause.classList.add('hidden'); ui.menu.classList.remove('hidden'); showCard('mSettings');
+};
 $('againBtn').onclick = () => { sfx.click(); startRun(); };
 $('overMenuBtn').onclick = () => { sfx.click(); toMenu(); };
 
@@ -1954,6 +1968,7 @@ for (const b of document.querySelectorAll('[data-go]')) {
   b.addEventListener('click', () => {
     initAudio(); sfx.click();
     const go = b.dataset.go;
+    if (go === 'mMain' && pauseSettings) { closePauseSettings(true); return; }
     if (go === 'play') startRun(); else showCard(go);
   });
 }
