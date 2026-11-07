@@ -969,7 +969,7 @@ details.more > summary { cursor: pointer; list-style: none; padding: 7px 12px; f
 details.more > summary::-webkit-details-marker { display: none; }
 details.more[open] > summary { border-bottom: 1px solid #e8b24a33; }
 details.more .statList { padding: 4px 8px 8px; max-height: 38vh; overflow-y: auto; }
-body.pauseSet #resetBtn, body.pauseSet #ctrlEditBtn, body.pauseSet #mSettings .setting:has(#testChk) { display: none; }
+body.pauseSet #resetBtn, body.pauseSet #mSettings .setting:has(#testChk) { display: none; }
 
 /* =====================================================
    HUD — DÜZEN C (telefon, kullanıcı seçimi 7 Kasım): üstte tek satır can+XP, altında ince bilgi şeridi,
@@ -1014,3 +1014,42 @@ body.touch #upgradeBar .upg { width: 28px !important; height: 28px !important; f
 body.touch #hint { top: calc(max(8px, env(safe-area-inset-top)) + 84px) !important; }
 #victory .goldPill::before { content: ""; display: inline-block; vertical-align: middle; width: 26px; height: 26px; margin: -4px 8px 0 0; background: url(assets/ui/i-coins.png) center / contain no-repeat; }
 
+
+/* =====================================================
+   DURAKLAT — yeni tasarım: kahraman kartı + 3 değer çipi + güçlendirme ızgarası + butonlar
+   ===================================================== */
+#pause .card { gap: 8px; max-width: 380px; }
+#pause .pHero { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 12px; background: linear-gradient(180deg, #2a1640, #160a26); border: 1.5px solid #e8b24a88; }
+#pause .pHero img { width: 54px; height: 54px; object-fit: contain; border-radius: 10px; background: radial-gradient(circle at 50% 35%, #8a4ad8, #2c1150 75%); border: 2px solid #e8b24a; }
+#pause .pHero b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 22px; color: #ffe9a8; }
+#pause .pHero small { color: #d8c8f0; font-size: 12px; }
+#pause .pStats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#pause .pStats details.more { grid-column: 1 / -1; margin-top: 0; }
+#pause .pChip { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 4px; border-radius: 10px; background: #160a26cc; border: 1px solid #e8b24a66; }
+#pause .pChip img, #pause .pChip i { width: 22px; height: 22px; font-style: normal; font-size: 18px; line-height: 22px; object-fit: contain; }
+#pause .pChip b { font-family: var(--font-display); font-weight: 400; font-size: 16px; color: #fff; }
+#pause .pChip small { font-size: 10px; color: #c8b8e0; }
+#pause h3.pH { margin: 4px 0 0; text-align: center; font-family: var(--font-display); font-weight: 400; font-size: 14px; letter-spacing: .06em; color: #e8b24a; text-transform: uppercase; }
+#pause .pUps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; max-height: 30vh; overflow-y: auto; }
+#pause .pUp { position: relative; display: flex; flex-direction: column; align-items: center; padding: 6px 2px 4px; border-radius: 10px; background: linear-gradient(180deg, #3b2650, #1d1029); border: 1.5px solid #6e4a2a; }
+#pause .pUp i { font-style: normal; font-size: 22px; line-height: 26px; }
+#pause .pUp em { position: absolute; top: -5px; right: -4px; min-width: 18px; padding: 0 4px; border-radius: 99px; font-style: normal; font-family: var(--font-display); font-size: 11px; line-height: 16px; color: #3a1d00; background: linear-gradient(180deg, #ffe9a8, #e8b24a); border: 1px solid #6b3a00; text-align: center; }
+#pause .pUp small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9.5px; color: #d8c8f0; }
+#pause .pUp.max { border-color: #e8b24a; }
+#pause .pUp.evo { border-color: #ffe9a8; box-shadow: 0 0 10px #b678ff99; background: linear-gradient(180deg, #8a4ad8, #45197e); }
+#pause .pHint { grid-column: 1 / -1; font-size: 11px; color: #e6d4ff; text-align: center; line-height: 1.5; }
+#pause .pEmpty { grid-column: 1 / -1; text-align: center; font-size: 13px; color: #c8b8e0; padding: 6px; }
+#pause .pActions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+#pause .pActions #resumeBtn { width: 100%; }
+#pause .pRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#pause .pRow button { min-height: 44px; font-size: 15px; }
+
+/* --- Oyun verisi paylaş / sıfırla (stats-log.js) --- */
+#menu .logRow { display: flex; gap: 8px; align-items: stretch; }
+#menu .logRow #shareLogBtn { flex: 1 1 auto; }
+#menu .card .logRow #resetLogBtn { flex: 0 0 auto; min-height: 46px; padding: 0 12px; font-size: 13px; line-height: 1.15; max-width: 42%; }
+#menu .card .logRow #resetLogBtn.armed { filter: brightness(1.25) saturate(1.2); }
+#menu .logShare { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 2px solid #6e4a2a; border-radius: 10px; background: linear-gradient(180deg, #2f1d47, #170b27); box-shadow: inset 0 0 0 2px #000a, 0 3px 6px #0008; }
+#menu .logShare.hidden { display: none; }
+#menu .logShare small { color: var(--g-gold1); }
+#menu .logShare textarea { width: 100%; box-sizing: border-box; resize: none; font: 12px/1.3 monospace; color: #e6d4ff; background: #12061f; border: 2px solid var(--g-gold3); border-radius: 8px; padding: 6px; }

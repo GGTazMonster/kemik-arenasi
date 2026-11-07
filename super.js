@@ -96,7 +96,7 @@ export function superUse(move) {
   const starter = { knight: startKnight, barbarian: startBarb, mage: startMage, ranger: startRanger, rogue: startRogue }[hero];
   if (!starter) return false;
   if (!starter(move)) { A.floatText(pos(), 'Hedef yok!', '', 2.6); return false; }
-  S.charge = 0; S.flash = 0;
+  S.charge = 0; S.flash = 0; A.onUse && A.onUse();
   p.invuln = Math.max(p.invuln || 0, 0.7);   // Süper anı güvenli: kısa dokunulmazlık (animasyon sırasında ölmesin)
   A.sfx.superUse && A.sfx.superUse();
   A.spawnRingFx(pos(), 3.5, 0xffd23f);

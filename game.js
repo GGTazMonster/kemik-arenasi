@@ -11,6 +11,7 @@ import * as TAL from './talents.js';   // kahramana özel kalıcı yetenekler
 import { HERO_TALENTS, HERO_WEAPONS, HERO_MAX_LV } from './data.js';
 import * as SUP from './super.js';   // Süper yetenekler (E/Q, mobilde ⚡)
 import { initTouch } from './touch.js';   // mobil joystick + atılma + süper butonu
+import * as LOG from './stats-log.js';   // yerel oyun verisi günlüğü (bot koşuları kaydedilmez)
 
 const $ = id => document.getElementById(id);
 
@@ -124,6 +125,21 @@ hemi.layers.enable(1); sun.layers.enable(1);   // menü vitrininde de aydınlats
 const menuKey = new THREE.DirectionalLight(0xfff4e6, 1.6), menuRim = new THREE.DirectionalLight(0xc070ff, 2.2);
 menuKey.layers.set(1); menuRim.layers.set(1); scene.add(menuKey, menuRim);
 
+// Oyun ortasında otomatik düşürme: SADECE ucuz ayarlar (çözünürlük, gölge çözünürlüğü, düşman gölgesi, seyirci).
+// Gölgeyi açıp kapatmak / gölge türünü değiştirmek tüm shader'ları yeniden derletir → telefonda ~1,5 sn siyah ekran.
+// Tam ayar bir sonraki açılışta (applyQuality) uygulanır.
+function applyQualitySoft() {
+  Q = QUALITY[save.settings.quality] || QUALITY.orta;
+  renderer.setPixelRatio(Q.pr);
+  if (sun.castShadow) {
+    const sz = Q.shadow || 512;
+    if (sun.shadow.mapSize.x !== sz) { sun.shadow.mapSize.set(sz, sz); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  }
+  for (const list of Object.values(pools)) for (const e of list) setCharShadow(e, Q.enemyShadow);
+  for (const e of enemies) setCharShadow(e, Q.enemyShadow);
+  crowd.setQuality(save.settings.quality);
+  resize();
+}
 function applyQuality() {
   Q = QUALITY[save.settings.quality] || QUALITY.orta;
   renderer.setPixelRatio(Q.pr);
@@ -961,7 +977,7 @@ function updatePlayer(dt) {
 
   // Atılma
   if (wantDash && p.dashCd <= 0 && !SUP.superFreeze() && !SUP.superCharging()) {
-    p.dashT = 0.17; p.dashCd = p.dashMax = TAL.talentDashCd(0.9); TAL.talentOnDash();
+    LOG.logDash(); p.dashT = 0.17; p.dashCd = p.dashMax = TAL.talentDashCd(0.9); TAL.talentOnDash();
     p.dashDir.copy(move.lengthSq() ? move : tmpV2.set(Math.sin(o.rotation.y), 0, Math.cos(o.rotation.y)));
     sfx.dash();
   }
@@ -1349,7 +1365,7 @@ function pickType(w) {
   return 'minion';
 }
 function startWave() {
-  run.wave++;
+  run.wave++; LOG.logWave();
   const w = run.wave, final = w === FINAL_WAVE, boss = !final && w % 5 === 0;
   run.queue = [];
   if (final) {
@@ -1465,7 +1481,7 @@ function applyChoice(u) {
   if (u.id === '_gold') run.gold += 25;
   else if (u.id === '_heal') heal(run.s.maxHp);
   else if (u.evo) {
-    run.evo[u.evo.id] = true; run.evos++;
+    run.evo[u.evo.id] = true; run.evos++; LOG.logEvo(u.evo.id);
     banner(`🌟 EVRİM: ${u.evo.name}!`, 2.5); sfx.evo();
     spawnRingFx(player.obj.position, 5, 0xffd23f); particles.emit(player.obj.position, 30, GOLD_COL, 6);
   } else {
@@ -1496,6 +1512,7 @@ function rollChoices() {
   });
   $('rerollN').textContent = run.rerolls;
   $('rerollBtn').disabled = run.rerolls <= 0;
+  LOG.logOffer(choices);
 }
 function openLevelUp() {
   if (bot) {
@@ -1513,13 +1530,14 @@ function openLevelUp() {
 function pickChoice(i) {
   const u = choices[i]; if (!u || state !== 'levelup') return;
   sfx.click();
+  LOG.logPick(u.id);
   applyChoice(u);
   run.pending--;
   if (run.pending > 0) { $('luLevel').textContent = run.level - run.pending + 1; rollChoices(); return; }
   ui.levelUp.classList.add('hidden');
   state = 'play';
 }
-function reroll() { if (state !== 'levelup' || run.rerolls <= 0) return; run.rerolls--; sfx.click(); rollChoices(); }
+function reroll() { if (state !== 'levelup' || run.rerolls <= 0) return; run.rerolls--; LOG.logReroll(); sfx.click(); rollChoices(); }
 $('rerollBtn').onclick = reroll;
 
 function renderUpgradeBar() {
@@ -1568,7 +1586,7 @@ function openChest() {
 }
 function collectChest() {
   if (state !== 'chest' || $('chestBtn').classList.contains('hidden')) return;
-  sfx.click();
+  sfx.click(); LOG.logChest();
   for (const r of chestRewards) { if (r.gold) run.gold += r.gold; else applyChoice(r); }
   ui.chest.classList.add('hidden');
   state = 'play';
@@ -1614,6 +1632,7 @@ function startRun() {
   ui.hud.classList.remove('hidden');
   ui.hint.style.opacity = 0.85; hintT = document.body.classList.contains('touch') ? 4 : 9;   // telefonda kısa göster
   state = 'play';
+  LOG.logRunStart();
   startWave();
 }
 
@@ -1697,7 +1716,7 @@ function endRun() {
   st.runs++; st.goldEarned += earned;
   st.bestKills = Math.max(st.bestKills, run.kills); st.bestTime = Math.max(st.bestTime, run.time);
   run.counted = true;
-  persist();
+  persist(); LOG.logRunEnd();
   checkQuests();
   ui.over.querySelector('h2').textContent = run.won ? '👑 Zafer kaydedildi!' : 'Düştün!';
   // Temel bilgiler görünür; geri kalanı "Ayrıntılar" altında (ekran kısa kalsın, kaydırma gerekmesin)
@@ -1723,22 +1742,32 @@ function togglePause() {
     state = 'paused';
     for (const k in keys) keys[k] = false;
     const S = run.s;
-    $('pauseHero').textContent = `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`;
-    $('pauseStats').innerHTML = rows([
-      ['Can', `${Math.ceil(player.hp)} / ${Math.round(S.maxHp)}`], ['Saldırı hasarı', S.atkDmg.toFixed(1)], ['Hareket hızı', S.speed.toFixed(2)],
-    ]) + more([
-      ['Saldırı aralığı', S.interval.toFixed(2) + ' sn'], ['Menzil', S.range.toFixed(2)],
-      ['Kritik şansı', '%' + Math.round(S.crit * 100)], ['Can yenileme', S.regen.toFixed(1) + ' /sn'], ['Zırh', '%' + Math.round(S.armor * 100)],
-      ['Toplama alanı', S.magnet.toFixed(1)], ['Yeniden seçim hakkı', run.rerolls],
-    ].concat(TAL.talentRows(run.hero)));   // aktif kalıcı yetenekler (katlanır)
+    $('pauseHero').textContent = HEROES[run.hero].name;
+    $('pauseHeroImg').src = `assets/ui/p-${run.hero}.png`;
+    $('pauseSub').textContent = `Seviye ${run.level} · Dalga ${run.wave} / ${FINAL_WAVE}`;
+    // 3 temel değer çip olarak; geri kalanı katlanır Ayrıntılar
+    $('pauseStats').innerHTML = [
+      ['assets/ui/i-heart.png', `${Math.ceil(player.hp)}/${Math.round(S.maxHp)}`, 'Can'],
+      ['⚔️', S.atkDmg.toFixed(1), 'Hasar'],
+      ['assets/ui/i-dash.png', S.speed.toFixed(1), 'Hız'],
+    ].map(([ic, v, l]) => `<div class="pChip">${ic.endsWith('.png') ? `<img src="${ic}" alt="">` : `<i>${ic}</i>`}<b>${v}</b><small>${l}</small></div>`).join('')
+      + more([
+        ['Saldırı aralığı', S.interval.toFixed(2) + ' sn'], ['Menzil', S.range.toFixed(2)],
+        ['Kritik şansı', '%' + Math.round(S.crit * 100)], ['Can yenileme', S.regen.toFixed(1) + ' /sn'], ['Zırh', '%' + Math.round(S.armor * 100)],
+        ['Toplama alanı', S.magnet.toFixed(1)], ['Yeniden seçim hakkı', run.rerolls],
+      ].concat(TAL.talentRows(run.hero)));
+    // Güçlendirmeler: ikon + seviye rozeti + kısa ad; evrimler altın çerçeve; evrim ipuçları tek satır
     const ups = UPGRADES.filter(u => run.up[u.id]);
-    const evRows = EVOS.filter(ev => run.evo[ev.id]).map(ev => [`${ev.icon} ${ev.name}`, 'EVRİM ★']);
+    const evs = EVOS.filter(ev => run.evo[ev.id]);
     const hints = EVOS.filter(ev => !run.evo[ev.id] && run.up[ev.base]).map(ev => {
       const b = UPGRADES.find(u => u.id === ev.base), r = UPGRADES.find(u => u.id === ev.req);
-      return [`💡 ${ev.name}`, `${b.name} 5 + ${r.name}`];
+      return `💡 <b>${ev.name}</b>: ${b.name} 5 + ${r.name}`;
     });
-    $('pauseUps').innerHTML = ups.length ? rows(ups.map(u => [`${u.icon} ${u.name}`, `${run.up[u.id]} / ${u.max}`]).concat(evRows, hints)) : '<div><span>Henüz yok, seviye atla!</span><span></span></div>';
-    ui.pause.classList.remove('hidden');
+    $('pauseUps').innerHTML = (ups.length || evs.length)
+      ? evs.map(ev => `<div class="pUp evo"><i>${ev.icon}</i><em>★</em><small>${ev.name}</small></div>`).join('')
+        + ups.map(u => `<div class="pUp${run.up[u.id] >= u.max ? ' max' : ''}"><i>${u.icon}</i><em>${run.up[u.id]}</em><small>${u.name}</small></div>`).join('')
+        + (hints.length ? `<div class="pHint">${hints.join('<br>')}</div>` : '')
+      : '<div class="pEmpty">Henüz yok. Seviye atla!</div>';    ui.pause.classList.remove('hidden');
   } else if (state === 'paused') {
     if (pauseSettings) closePauseSettings(false);
     ui.pause.classList.add('hidden');
@@ -2033,7 +2062,7 @@ TAL.initTalents({
 // Süper yetenekler (super.js)
 SUP.initSuper({
   get run() { return run; }, get player() { return player; }, get enemies() { return enemies; }, scene, sfx, G,
-  hero: () => HEROES[run.hero], play, banner, shake: v => { shake = Math.max(shake, v); },
+  hero: () => HEROES[run.hero], onUse: () => LOG.logSuper(), play, banner, shake: v => { shake = Math.max(shake, v); },
   damageEnemy, nearestEnemies, isActive, spawnRingFx, floatText, burst: (p, n, c, s) => particles.emit(p, n, c, s),
 });
 // Seviye atlama görsel geri bildirimi (menü vitrininde halka + parıltı)
@@ -2200,12 +2229,13 @@ function loop() {
   if (fpsT >= 0.5) {
     const fps = fpsFrames / fpsT;
     if (save.settings.fps) setText(ui.fps, `${Math.round(fps)} FPS · ${enemies.length} düşman`);
+    if (state === 'play' && forcedDt === null && !document.hidden) LOG.logFps(fps);
     if (state === 'play' && save.settings.autoQ && !document.hidden) {
       slowT = fps < 40 ? slowT + fpsT : 0;
       if (slowT > 4) {
         const i = Q_ORDER.indexOf(save.settings.quality);
         if (i > 0) {
-          save.settings.quality = Q_ORDER[i - 1]; persist(); applyQuality();
+          save.settings.quality = Q_ORDER[i - 1]; persist(); applyQualitySoft(); LOG.logQualityDrop();
           toast('Oyun kastığı için grafik kalitesi düşürüldü (Ayarlar\'dan değiştirebilirsin)');
         }
         slowT = 0;
@@ -2249,6 +2279,8 @@ function prewarm() {
   for (const f of floats) { f.el.style.opacity = 0; floatPool.push(f.el); } floats.length = 0;
 }
 
+LOG.initLog({ events: gameEvents, run: () => run, player: () => player, bot: () => bot, quality: () => save.settings.quality, testMode: TEST_MODE,
+  heroLevel: h => (save.heroLevels && save.heroLevels[h]) || 0, finalWave: FINAL_WAVE, toast });
 ui.fps.classList.toggle('hidden', !save.settings.fps);
 applyQuality();
 showCard('mMain');

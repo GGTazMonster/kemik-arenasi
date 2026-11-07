@@ -28,7 +28,7 @@ export const ELITE = { hp: 6, dmg: 1.4, scale: 1.35, xp: 5 };
 //  mods: hp, armor, dmg, speed, crit = bonus; interval, range = temel değerin yerine geçer
 export const HEROES = {
   knight:    { name: 'Şövalye', icon: '🛡️', model: 'knight',    right: 'sword',  left: 'shield', attack: 'melee', cost: 0,
-               desc: 'Dengeli savaşçı. Kılıcıyla önündeki düşmanlara savurur.', perks: ['+40 maks. can', '%20 zırh', 'Saniyede 1 can yeniler'], mods: { hp: 40, armor: 0.2, regen: 1 } },
+               desc: 'Dengeli savaşçı. Kılıcıyla önündeki düşmanlara savurur.', perks: ['+40 maks. can', '%20 zırh', '+%15 hasar', 'Saniyede 1 can yeniler'], mods: { hp: 40, armor: 0.2, regen: 1, dmg: 0.15, interval: 0.78, range: 2.65 } },   // denge 7 Kas: başlangıç kahramanı daha rahat
   barbarian: { name: 'Barbar',  icon: '🪓', model: 'barbarian', right: 'axe2',   left: null,     attack: 'spin',  cost: 300, unlock: 'w10',
                desc: 'Çift elli baltasıyla etrafındaki herkese vurur.', perks: ['360° saldırı', '+%35 hasar', '+30 maks. can', 'Daha yavaş saldırı'], mods: { dmg: 0.35, hp: 30, armor: 0.1, interval: 1.1, range: 2.6 } },
   mage:      { name: 'Büyücü',  icon: '🔮', model: 'heroMage',  right: 'staff',  left: null,     attack: 'bolt',  cost: 500, unlock: 'boss1',
@@ -36,7 +36,7 @@ export const HEROES = {
   ranger:    { name: 'Okçu',    icon: '🏹', model: 'ranger',    right: null,     left: 'bow',    attack: 'arrow', cost: 700, unlock: 'k1000',
                desc: 'Düşmanları delip geçen hızlı oklar atar.', perks: ['Oklar 2 düşmanı deler', '+%10 hareket hızı', 'Uzun menzil', '-10 maks. can'], mods: { hp: -10, dmg: -0.15, speed: 0.1, interval: 0.8, range: 8.5 } },
   rogue:     { name: 'Haydut',  icon: '🗡️', model: 'heroRogue', right: 'dagger', left: 'dagger', attack: 'fast',  cost: 1000, unlock: 'win',
-               desc: 'Çok hızlı, kritik vuruşlarla ölümcül.', perks: ['+%20 kritik', '+%15 hız', 'Hançer Yağmuru ile başlar', '%10 zırh'], mods: { crit: 0.2, speed: 0.15, armor: 0.1, dmg: -0.1, interval: 0.42, range: 2.1 }, start: { dagger: 1 } },
+               desc: 'Çok hızlı, kritik vuruşlarla ölümcül.', perks: ['+%15 kritik', '+%8 hız', 'Hançer Yağmuru ile başlar', '%10 zırh'], mods: { crit: 0.15, speed: 0.08, armor: 0.1, dmg: -0.1, interval: 0.42, range: 2.1 }, start: { dagger: 1 } },   // denge 7 Kas: insan oyuncuda fazla kolaydı
 };
 
 // Silah evrimleri: ana silah 5. seviye + gereken pasif ≥1 → seviye atlarken / sandıktan çıkar
