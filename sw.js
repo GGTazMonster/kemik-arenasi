@@ -4,7 +4,9 @@
 //  - Modeller, dokular, Three.js (CDN), fontlar: önce önbellek → hızlı ve internetsiz
 //  Yeni sürüm yayınlayınca VERSION'ı artır.
 // =====================================================
-const VERSION = 'kemik-20261107-200338';
+const VERSION = 'kemik-20261107-203648';
+// Modeller/görseller/Three.js ayrı ve KALICI önbellekte: güncellemede yeniden inmez (20 MB). Bir görseli değiştirirsen adını da değiştir.
+const ASSETS = 'kemik-assets-v1';
 const CORE = ['./', './index.html', './style.css', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -13,7 +15,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== ASSETS).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -38,7 +40,7 @@ self.addEventListener('fetch', e => {
   }
   // Önce önbellek (modeller, Three.js, fontlar)
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
-    if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+    if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(ASSETS).then(c => c.put(req, copy)); }
     return res;
   })));
 });

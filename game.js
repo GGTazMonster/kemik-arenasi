@@ -2143,8 +2143,9 @@ function loop() {
   if (bot && bot.fast) return;   // simülasyonda çizim yok
   crowd.update(realDt, camera);   // seyirciler: uniform + ekran dışı dilimleri gizleme (ucuz)
   // Menünün alt sayfalarında (dükkan, görevler…) sahne çizilmez; arkada #menuBg görünür
-  const subMenu = !vit && state === 'menu' && !run && !ui.menu.classList.contains('hidden');
+  const subMenu = !vit && (state === 'menu' || state === 'loading') && !run && !ui.menu.classList.contains('hidden');
   if (subMenu !== subDraw) { subDraw = subMenu; document.body.classList.toggle('gMenu', subMenu); }
+  document.body.classList.toggle('gLoad', state === 'loading');
   if (subMenu) return;
   // Gotik ana menü: sahneyi değil sadece kahramanı (katman 1) şeffaf zeminle çiz; arkada #menuBg resmi görünür
   const homeOnly = !!vit;
