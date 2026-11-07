@@ -14,6 +14,20 @@ import { initTouch } from './touch.js';   // mobil joystick + atılma + süper b
 
 const $ = id => document.getElementById(id);
 
+// Kendi kendini onarma: telefon sayfanın (index.html) ESKİ kopyasını yeni kodla açarsa oyun "Yükleniyor"da kalır.
+// Yeni sayfada #heroPrev var; yoksa sayfa önbelleğini tazeleyip bir kez yeniden yükle.
+if (!document.getElementById('heroPrev')) {
+  let tried = false; try { tried = sessionStorage.getItem('kemikPageFix') === '1'; sessionStorage.setItem('kemikPageFix', '1'); } catch {}
+  if (!tried) {
+    (async () => {
+      try { await Promise.all(['./', './index.html', './style.css'].map(u => fetch(u, { cache: 'reload' }))); } catch {}
+      try { for (const k of await caches.keys()) if (!k.includes('assets')) await caches.delete(k); } catch {}
+      location.reload();
+    })();
+    throw new Error('Eski sayfa bulundu, yenileniyor');
+  }
+}
+
 // Oyun olayları (herkes dinleyebilir): gameEvents.addEventListener('kill', e => e.detail ...)
 // Olaylar: kill {elite,boss,combo} · bossSpawn {name} · bossKill {king} · levelUp {level} · playerHurt {dmg,hp,maxHp}
 //          waveStart {wave,boss,final} · victory · playerDeath
@@ -1857,9 +1871,9 @@ function stepHero(d) {
   const ids = Object.keys(HEROES), i = ids.indexOf(menuPreview || save.hero);
   pickHero(ids[(i + d + ids.length) % ids.length]);
 }
-$('heroPrev').onclick = () => { initAudio(); stepHero(-1); };
-$('heroNext').onclick = () => { initAudio(); stepHero(1); };
-$('tabHero').onclick = () => {
+if ($('heroPrev')) $('heroPrev').onclick = () => { initAudio(); stepHero(-1); };
+if ($('heroNext')) $('heroNext').onclick = () => { initAudio(); stepHero(1); };
+if ($('tabHero')) $('tabHero').onclick = () => {
   initAudio(); sfx.click();
   if (typeof window.openHeroTalents === 'function') window.openHeroTalents(save.hero);
 };
