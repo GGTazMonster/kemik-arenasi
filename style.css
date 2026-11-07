@@ -951,3 +951,16 @@ body.touch #hint { top: 150px !important; font-size: 10.5px; line-height: 1.3; o
 body.touch #banner { font-size: 26px !important; top: 30% !important; }
 body.touch #superBtn { transform: scale(.84); transform-origin: bottom right; }
 body.touch #dashBtn { transform: scale(.85); transform-origin: bottom right; background-position: center !important; background-size: 62% !important; }
+
+/* Telefonda dalga + sayaçlar ortadan sağ kenara: duraklat/hız altında küçük sağa yaslı rozetler (orta alan boş kalsın) */
+body.touch #rightTop { left: auto !important; right: max(8px, env(safe-area-inset-right)) !important; top: 102px !important; transform: none !important;
+  display: flex !important; flex-direction: column; align-items: flex-end; gap: 4px; width: auto !important; }
+body.touch #wavePanel { min-width: 0 !important; width: auto !important; padding: 3px 10px !important; margin: 0 !important; border-radius: 9px !important; }
+body.touch #wavePanel .wSkull { display: none !important; }
+body.touch #waveTxt { font-size: 14px !important; line-height: 1.2 !important; letter-spacing: .02em; white-space: nowrap; }
+body.touch #waveSub { font-size: 10px !important; margin: 0 !important; opacity: .85; text-align: right; }
+body.touch #rightTop .row { display: flex !important; flex-direction: column; align-items: flex-end; gap: 3px; padding: 0 !important; margin: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+body.touch #rightTop .row span { display: flex; align-items: center; gap: 4px; padding: 1px 8px 1px 3px !important; border: 1px solid #e8b24a99 !important; border-radius: 99px; background: #160a26cc !important; font-size: 12px !important; min-width: 0 !important; }
+body.touch #rightTop .row span::before, body.touch #rightTop .row span::after { display: none !important; }
+body.touch #rightTop .row img { width: 16px !important; height: 16px !important; }
+body.touch #rightTop .row b { font-size: 12px !important; }
