@@ -57,8 +57,9 @@ function loadSave() {
   } catch { return d; }
 }
 const save = loadSave();
-if (TEST_MODE) {   // her açılışta: tüm kahramanlar açık + altın dolu
-  for (const id in HEROES) save.heroes[id] = true;
+// Tüm kahramanlar herkese açık (kullanıcı kararı, 7 Kasım 2026)
+for (const id in HEROES) save.heroes[id] = true;
+if (TEST_MODE) {   // her açılışta: altın dolu
   save.gold = Math.max(save.gold, TEST_GOLD);
 }
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch {} }
@@ -1999,7 +2000,7 @@ $('fpsChk').onchange = e => { save.settings.fps = e.target.checked; ui.fps.class
 $('autoQChk').onchange = e => { save.settings.autoQ = e.target.checked; persist(); };
 $('resetBtn').onclick = () => {
   if (!confirm('Tüm altın, kalıcı geliştirmeler ve istatistikler silinsin mi?')) return;
-  save.gold = 0; save.shop = {}; save.heroes = { knight: true }; save.hero = 'knight'; save.quests = {}; save.heroTalents = {}; save.heroLevels = {};
+  save.gold = 0; save.shop = {}; save.heroes = Object.fromEntries(Object.keys(HEROES).map(id => [id, true])); save.hero = 'knight'; save.quests = {}; save.heroTalents = {}; save.heroLevels = {};
   for (const k in save.stats) save.stats[k] = 0; persist(); setHero('knight'); showCard('mSettings');
   toast('İlerleme sıfırlandı');
 };
