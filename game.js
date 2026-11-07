@@ -322,6 +322,8 @@ function syncBlobs() {
   blobs.instanceMatrix.needsUpdate = true;
 }
 
+// Bazı silah modelleri el yuvasına ters oturuyor: yay 180° çevrilmeli (kiriş okçuya baksın, kabza elde ortalansın)
+const WEAPON_FIX = { bow: m => { m.rotation.z = Math.PI; } };
 function makeChar(model, rightKey, leftKey) {
   // Not: malzemeler paylaşılıyor (kopyalanmıyor) — daha az bellek, daha hızlı
   const obj = SkeletonUtils.clone(G[model].scene);
@@ -330,7 +332,7 @@ function makeChar(model, rightKey, leftKey) {
   for (const [bone, wk] of [['handslotr', rightKey], ['handslotl', leftKey]]) {
     if (!wk) continue;
     const b = obj.getObjectByName(bone);
-    if (b) { wp[bone] = G[wk].scene.clone(); b.add(wp[bone]); }
+    if (b) { wp[bone] = G[wk].scene.clone(); WEAPON_FIX[wk]?.(wp[bone]); b.add(wp[bone]); }
   }
   scene.add(obj);
   // Gölge lekeleri tek bir InstancedMesh ile çiziliyor (bkz. syncBlobs)
@@ -345,7 +347,7 @@ function equipWeapons(c, id, tier) {
     const b = c.obj.getObjectByName(bone); if (!b) return;
     if (c.wp[bone]) { b.remove(c.wp[bone]); delete c.wp[bone]; }
     if (!key) return;
-    const m = G[key].scene.clone(); m.scale.setScalar(sc); b.add(m); c.wp[bone] = m;
+    const m = G[key].scene.clone(); m.scale.setScalar(sc); WEAPON_FIX[key]?.(m); b.add(m); c.wp[bone] = m;
     if (c.shadowOn) m.traverse(o => { if (o.isMesh) o.castShadow = true; });
     if (c.sil) m.traverse(o => { if (o.isMesh) { o.userData.mat0 = o.material; o.material = silMat; } });
   };
@@ -1657,7 +1659,7 @@ function showVictory() {
   run.gold += bonus;
   $('victoryStats').innerHTML = rows([['Süre', fmtTime(run.time)], ['Devrilen iskelet', run.kills]])
     + more([['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`], ['Seviye', run.level], ['En uzun seri', run.bestCombo]]);
-  $('victoryGold').innerHTML = `🪙 Zafer bonusu +${bonus} altın`;
+  $('victoryGold').innerHTML = `Zafer bonusu +${bonus} altın`;
   ui.victory.classList.remove('hidden');
   checkQuests();
 }
@@ -1705,7 +1707,7 @@ function endRun() {
     ['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`], ['Seviye', run.level], ['En uzun seri', run.bestCombo],
     ['Verilen toplam hasar', Math.round(run.dmgDealt).toLocaleString('tr-TR')], ['Altın', `toplanan ${run.gold} + dalga bonusu ${bonus}`],
   ].concat(damageRows()));
-  $('overGold').innerHTML = `🪙 +${earned} altın`;
+  $('overGold').innerHTML = `+${earned} altın`;   // ikon CSS'ten geliyor
   $('overQuests').innerHTML = run.newQuests.map(q => `<div>✅ ${q.text} → ${rewardText(q.reward)}</div>`).join('');
   ui.over.classList.remove('hidden');
   ui.hud.classList.add('hidden');

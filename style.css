@@ -970,3 +970,47 @@ details.more > summary::-webkit-details-marker { display: none; }
 details.more[open] > summary { border-bottom: 1px solid #e8b24a33; }
 details.more .statList { padding: 4px 8px 8px; max-height: 38vh; overflow-y: auto; }
 body.pauseSet #resetBtn, body.pauseSet #ctrlEditBtn, body.pauseSet #mSettings .setting:has(#testChk) { display: none; }
+
+/* =====================================================
+   HUD — DÜZEN C (telefon, kullanıcı seçimi 7 Kasım): üstte tek satır can+XP, altında ince bilgi şeridi,
+   güçlendirmeler en altta ortada; orta alan tamamen boş. Önceki telefon HUD ayarlarını ezer.
+   ===================================================== */
+body.touch #leftTop { transform: none !important; position: absolute; top: max(8px, env(safe-area-inset-top)) !important; left: max(8px, env(safe-area-inset-left)) !important; right: 54px;
+  display: flex !important; flex-direction: row; align-items: center; gap: 6px; width: auto !important; }
+body.touch #lvlBadge { flex: none; width: 36px !important; height: 40px !important; margin: 0 !important; }
+body.touch #lvlBadge img { width: 100% !important; height: 100% !important; }
+body.touch #lvlNum { font-size: 17px !important; }
+body.touch #leftTop .gBars { flex: 1; min-width: 0; display: flex !important; flex-direction: row; gap: 6px; margin: 0 !important; }
+body.touch #hpBar, body.touch #xpBar { flex: 1 1 0; min-width: 0; height: 20px !important; margin: 0 !important; border-radius: 99px !important; }
+body.touch #hpBar .barIc { width: 22px !important; height: 22px !important; left: -6px !important; top: -2px !important; }
+body.touch #hpTxt, body.touch #lvlTxt { font-size: 11px !important; line-height: 16px !important; }
+body.touch #xpBar em { font-size: 10px !important; }
+body.touch #dashBar { display: none !important; }
+body.touch #buffs { position: absolute; top: 84px; left: 0; }
+body.touch #pauseBtn { transform: none !important; top: max(8px, env(safe-area-inset-top)) !important; right: max(8px, env(safe-area-inset-right)) !important; width: 40px !important; height: 40px !important; font-size: 18px !important; }
+/* İnce bilgi şeridi: ◆ DALGA 4/20 | süre | öldürme | altın */
+body.touch #rightTop { top: calc(max(8px, env(safe-area-inset-top)) + 48px) !important; left: max(8px, env(safe-area-inset-left)) !important; right: 60px !important;
+  flex-direction: row !important; align-items: center !important; justify-content: space-between; gap: 0 !important; height: 28px; padding: 0 10px !important;
+  background: linear-gradient(180deg, #2a1640ee, #140a22ee) !important; border: 1.5px solid #e8b24a !important; border-radius: 9px; box-shadow: inset 0 0 0 1px #000a, 0 2px 6px #0008; }
+body.touch #wavePanel { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+body.touch #waveTxt { font-size: 13px !important; color: #ffe9a8; }
+body.touch #waveTxt::before { content: "◆ "; color: #b678ff; font-size: 10px; vertical-align: 2px; }
+body.touch #waveSub { display: none !important; }
+body.touch #rightTop .row { flex-direction: row !important; align-items: center !important; gap: 0 !important; }
+body.touch #rightTop .row span { border: 0 !important; background: none !important; padding: 0 0 0 8px !important; margin-left: 8px; border-left: 1px solid #e8b24a66 !important; border-radius: 0 !important; }
+body.touch #rightTop .row b { font-size: 12px !important; }
+body.touch #speedBtn { transform: none !important; top: calc(max(8px, env(safe-area-inset-top)) + 48px) !important; right: max(8px, env(safe-area-inset-right)) !important; height: 28px !important; min-width: 44px; padding: 0 6px !important; font-size: 12px !important; }
+/* Güçlendirmeler: en altta ortada çerçeveli sıra */
+body.touch #upgradeBar { top: auto !important; bottom: max(14px, env(safe-area-inset-bottom)) !important; left: 50% !important; right: auto !important; transform: translateX(-62%);
+  max-width: 54vw !important; display: flex !important; flex-direction: row !important; flex-wrap: nowrap; gap: 4px; padding: 4px 6px; pointer-events: none;
+  background: linear-gradient(180deg, #2a1640dd, #140a22dd); border: 1.5px solid #e8b24a; border-radius: 10px; }
+body.touch #upgradeBar:empty { display: none !important; }
+body.touch #upgradeBar .upg { width: 28px !important; height: 28px !important; font-size: 14px !important; flex: none; }
+
+/* Düştün! kırmızı / Zafer altın-mor kurdele (üstteki .overlay:not(#menu) kuralı daha baskın olduğu için tekrar) */
+.overlay:not(#menu) .card h2.gRib.red { background: linear-gradient(180deg, #e0505c, #b02434 55%, #70101c) !important; }
+.overlay:not(#menu) .card h2.gRib.gold { background: linear-gradient(180deg, #ffd56a, #e8a73a 55%, #9a6420) !important; color: #3a1d00 !important; }
+/* İpucu yazısı telefonda bilgi şeridinin hemen altında */
+body.touch #hint { top: calc(max(8px, env(safe-area-inset-top)) + 84px) !important; }
+#victory .goldPill::before { content: ""; display: inline-block; vertical-align: middle; width: 26px; height: 26px; margin: -4px 8px 0 0; background: url(assets/ui/i-coins.png) center / contain no-repeat; }
+
