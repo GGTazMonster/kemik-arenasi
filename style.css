@@ -941,3 +941,13 @@ body.gMenu canvas { visibility: hidden; }
 /* Yükleniyor: arka plan net görünsün (bulanık/karanlık değil) */
 body.gLoad #menuBg { filter: none; }
 
+
+/* Telefonda oyun içi yazılar daha küçük: ekranın önünü kapatmasın (kullanıcı geri bildirimi) */
+body.touch #leftTop { transform: scale(.78); transform-origin: top left; }
+body.touch #rightTop { top: 74px !important; transform: translateX(-50%) scale(.72); transform-origin: top center; }
+body.touch #pauseBtn { transform: scale(.82); transform-origin: top right; }
+body.touch #speedBtn { transform: scale(.85); transform-origin: top right; }
+body.touch #hint { top: 150px !important; font-size: 10.5px; line-height: 1.3; opacity: .7; padding: 0 28px; }
+body.touch #banner { font-size: 26px !important; top: 30% !important; }
+body.touch #superBtn { transform: scale(.84); transform-origin: bottom right; }
+body.touch #dashBtn { transform: scale(.85); transform-origin: bottom right; background-position: center !important; background-size: 62% !important; }

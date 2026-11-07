@@ -1609,7 +1609,7 @@ function startRun() {
   renderUpgradeBar(); buffsDirty = true;
   for (const el of [ui.menu, ui.over, ui.pause, ui.levelUp, ui.chest, ui.victory]) el.classList.add('hidden');
   ui.hud.classList.remove('hidden');
-  ui.hint.style.opacity = 0.85; hintT = 9;
+  ui.hint.style.opacity = 0.85; hintT = document.body.classList.contains('touch') ? 4 : 9;   // telefonda kısa göster
   state = 'play';
   startWave();
 }
