@@ -34,24 +34,25 @@
 
 <!-- ============ OYUN İÇİ GÖSTERGELER ============ -->
 <div id="hud" class="hidden">
-  <div id="xpBar"><div id="xpFill"></div><span id="lvlTxt">Sv. 1</span></div>
-
   <div id="leftTop">
-    <div id="hpBar"><div id="hpFill"></div><span id="hpTxt">100 / 100</span></div>
-    <div id="dashBar" title="Atılma"><div id="dashFill"></div></div>
+    <div id="lvlBadge"><img src="assets/ui/i-badge.png" alt=""><b id="lvlNum">1</b></div>
+    <div class="gBars">
+      <div id="hpBar"><img class="barIc" src="assets/ui/i-heart.png" alt=""><div id="hpFill"></div><span id="hpTxt">100 / 100</span></div>
+      <div id="xpBar"><em>XP</em><div id="xpFill"></div><span id="lvlTxt">Sv. 1</span></div>
+      <div id="dashBar" title="Atılma"><div id="dashFill"></div></div>
+    </div>
     <div id="buffs"></div>
   </div>
 
   <div id="rightTop">
-    <div id="waveTxt">Dalga 1</div>
+    <div id="wavePanel"><img class="wSkull" src="assets/ui/skull-hang.png" alt=""><div id="waveTxt">Dalga 1</div></div>
     <div id="waveSub">Kalan: 0</div>
     <div class="row">
-      <span title="Süre">⏱ <b id="timeTxt">0:00</b></span>
-      <span title="Devrilen iskelet">💀 <b id="killTxt">0</b></span>
-      <span title="Bu koşuda toplanan altın">🪙 <b id="goldTxt">0</b></span>
+      <span title="Süre"><img src="assets/ui/i-time.png" alt=""><b id="timeTxt">0:00</b></span>
+      <span title="Devrilen iskelet"><img src="assets/ui/i-skull.png" alt=""><b id="killTxt">0</b></span>
+      <span title="Bu koşuda toplanan altın"><img src="assets/ui/i-coins.png" alt=""><b id="goldTxt">0</b></span>
     </div>
   </div>
-
   <div id="combo" class="hidden"><b id="comboN">0</b><span>SERİ</span></div>
 
   <div id="bossWrap" class="hidden">
@@ -61,9 +62,9 @@
 
   <div id="upgradeBar"></div>
   <div id="banner"></div>
-  <div id="hint"><span class="kbHint">Saldırı otomatik · <b>WASD</b> hareket · <b>Boşluk</b> atılma · <b>E</b> Süper · <b>Esc</b> duraklat</span><span class="touchHint">Saldırı otomatik · <b>Sola dokun ve sürükle</b>: hareket · <b>💨</b>: atılma · <b>Parlayan düğme</b>: Süper</span></div>
+  <div id="hint"><span class="kbHint">Saldırı otomatik · <b>WASD</b> hareket · <b>Boşluk</b> atılma · <b>E</b> Süper · <b>Esc</b> duraklat</span><span class="touchHint">Saldırı otomatik · <b>Sola dokun ve sürükle</b>: hareket · <b>Çift dokun</b> ya da <b>👟</b>: atılma · <b>Parlayan düğme</b>: Süper</span></div>
   <button id="superHud" title="Süper (E / Q)"><span id="superIc">💥</span><kbd>E</kbd></button>
-  <button id="pauseBtn" title="Duraklat (Esc)">⏸</button>
+  <button id="pauseBtn" title="Duraklat (Esc)"><i></i><i></i></button>
   <button id="speedBtn" title="Oyun hızı (T)">⏩ 1x</button>
   <div id="hurt"></div>
 </div>
@@ -71,54 +72,58 @@
 <div id="fps" class="hidden"></div>
 <div id="toast"></div>
 
+<div id="menuBg"></div>
 <!-- ============ ANA MENÜ ============ -->
 <div id="menu" class="overlay">
+  <!-- Gotik ana menü: arka plan resmi (#menuBg) + logo + kaidede 3B kahraman + portre şeridi + OYNA + alt sekmeler -->
   <div class="card" id="mMain">
-    <!-- Sol (mobilde alt): başlık + menü butonları -->
-    <div class="homeMenu">
-      <div class="logo">💀</div>
-      <h1>Kemik Arenası</h1>
-      <div class="testBadge">🧪 TEST MODU</div>
-      <p class="sub">İskeletler topraktan yükseliyor. Kahramanını seç, dalgalara dayan, güçlen, tekrar dene.</p>
-      <div class="goldPill">🪙 <b class="goldAmt">0</b> altın</div>
-      <div id="installWrap" class="installWrap hidden"><button id="installBtn" type="button">📲 Telefona Yükle</button></div>
-      <button class="primary" data-go="play" id="playBtn" disabled>Yükleniyor…</button>
-      <small id="playNote" class="playNote"></small>
-      <button data-go="mShop"><i class="bi">⬆️</i><span class="lg">Kalıcı Geliştirmeler</span><span class="sm">Geliştirme</span></button>
-      <button data-go="mQuests"><i class="bi">📜</i><span class="lg">Görevler</span><span class="sm">Görevler</span> <span id="questBadge" class="badge hidden"></span></button>
-      <button data-go="mHelp"><i class="bi">❓</i><span class="lg">Nasıl Oynanır</span><span class="sm">Rehber</span></button>
-      <button data-go="mStats"><i class="bi">📊</i><span class="lg">İstatistikler</span><span class="sm">İstatistik</span></button>
-      <button data-go="mSettings"><i class="bi">⚙️</i><span class="lg">Ayarlar</span><span class="sm">Ayarlar</span></button>
+    <div class="gTop">
+      <div class="testBadge">🧪 TEST</div>
+      <div class="gGold"><img src="assets/ui/i-coin.png" alt=""><b class="goldAmt">0</b></div>
     </div>
-    <!-- Sağ (mobilde üst): 3B karakter vitrini + seçili kahraman bilgisi + seçim şeridi -->
-    <div class="homeHero">
+    <img class="gLogo" src="assets/ui/logo.png" alt="Kemik Arenası">
+    <div class="gStage">
+      <button class="gArrow" id="heroPrev" type="button" aria-label="Önceki kahraman">‹</button>
       <div id="heroStage"></div>
-      <div id="heroInfo"></div>
-      <div id="heroStrip"></div>
+      <button class="gArrow" id="heroNext" type="button" aria-label="Sonraki kahraman">›</button>
     </div>
+    <div id="heroInfo"></div>
+    <div id="heroStrip"></div>
+    <div class="gPlay">
+      <img src="assets/ui/bones.png" alt="">
+      <button class="primary" data-go="play" id="playBtn" disabled>Yükleniyor…</button>
+      <img src="assets/ui/bones.png" alt="">
+    </div>
+    <small id="playNote" class="playNote"></small>
+    <nav class="gTabs">
+      <button type="button" id="tabHero" class="on"><img src="assets/ui/i-hero.png" alt=""><span>Kahraman</span></button>
+      <button type="button" data-go="mShop"><img src="assets/ui/i-shop.png" alt=""><span>Dükkan</span></button>
+      <button type="button" data-go="mQuests"><img src="assets/ui/i-quest.png" alt=""><span>Görevler</span><span id="questBadge" class="badge hidden"></span></button>
+      <button type="button" data-go="mSettings"><img src="assets/ui/i-settings.png" alt=""><span>Ayarlar</span></button>
+    </nav>
   </div>
 
   <div class="card wide hidden" id="mQuests">
-    <h2>Görevler</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib"><img class="gHi" src="assets/ui/i-quest.png" alt="">Görevler</h2>
     <p class="sub">Görevleri tamamla, altın kazan ve yeni kahramanların kilidini aç.</p>
     <div id="questList"></div>
-    <button data-go="mMain">Geri</button>
+    <button data-go="mMain" class="gBack">Geri</button>
   </div>
 
   <div class="card wide hidden" id="mShop">
-    <h2>Kalıcı Geliştirmeler</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">Geliştirmeler</h2>
     <p class="sub">Koşularda topladığın altınla kalıcı güç satın al. Bunlar her koşuda geçerli.</p>
-    <div class="goldPill">🪙 <b class="goldAmt">0</b> altın</div>
+    <div class="goldPill"><img class="gc" src="assets/ui/i-coins.png" alt=""> <b class="goldAmt">0</b> altın</div>
     <div id="shopList"></div>
-    <button data-go="mMain">Geri</button>
+    <button data-go="mMain" class="gBack">Geri</button>
   </div>
 
   <!-- Kahramana özel yetenekler: game.js openHeroTalents(heroId) ile açılır -->
   <div class="card wide hidden" id="mTalents">
-    <h2 id="talentTitle">Kahraman Seviyesi</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib" id="talentTitle">Kahraman Seviyesi</h2>
     <p class="sub">Altınla kahramanını seviye seviye geliştir: her kahramanın kendine özgü bir yolu, silah görünümü, saldırı değişimi ve Süper ustalığı var.</p>
     <div id="talentTabs" class="talentTabs"></div>
-    <div class="goldPill">🪙 <b class="goldAmt">0</b> altın</div>
+    <div class="goldPill"><img class="gc" src="assets/ui/i-coins.png" alt=""> <b class="goldAmt">0</b> altın</div>
     <div id="talentWarn" class="talentWarn hidden"></div>
     <div id="lvlHead" class="lvlHead"></div>
     <div id="lvlPath" class="lvlPath"></div>
@@ -126,11 +131,11 @@
     <h3>Mevcut kazanımlar</h3>
     <div id="talentList"></div>
     <small id="talentSpent" class="talentSpent"></small>
-    <button data-go="mMain">Geri</button>
+    <button data-go="mMain" class="gBack">Geri</button>
   </div>
 
   <div class="card wide hidden" id="mHelp">
-    <h2>Nasıl Oynanır</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">Nasıl Oynanır</h2>
     <div class="help">
       <div><b>🎮 Kontroller</b><br>WASD / ok tuşları: hareket · Boşluk / Shift: atılma (kısa süre hasar almazsın) · Esc / P: duraklat</div>
       <div><b>⚔️ Saldırı</b><br>Kahramanın menzildeki en yakın iskelete <b>otomatik</b> saldırır. Sen sadece konumunu iyi seç. Yakın dövüşçülerde etrafındaki soluk halka saldırı menzilini gösterir.</div>
@@ -145,17 +150,17 @@
       <div><b>💀 Düşmanlar</b><br>Minion: sıradan · Savaşçı: kalkanlı, dayanıklı (2. dalga) · Haydut: çok hızlı (3. dalga) · Büyücü: uzaktan büyü atar (4. dalga). İskeletler arenanın <b>kapılarından</b> akın eder; parlayan kapı yeni akını haber verir.</div>
       <div><b>👹 Boss'lar</b><br>Dalga 5 <b>Kemik Devi</b> · Dalga 10 <b>Kemik Nekromantı</b> · Dalga 15 <b>Gölge Haydut</b> · Dalga 20 <b>Kemik Kral</b>. Her saldırıdan önce yerde kırmızı uyarı belirir: alandan çık ya da <b>atılarak</b> içinden geç. Mor alanlar zararsızdır (büyü/ışınlanma işareti).</div>
     </div>
-    <button data-go="mMain">Geri</button>
+    <button data-go="mMain" class="gBack">Geri</button>
   </div>
 
   <div class="card hidden" id="mStats">
-    <h2>İstatistikler</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">İstatistikler</h2>
     <div id="statsList" class="statList"></div>
-    <button data-go="mMain">Geri</button>
+    <button data-go="mMain" class="gBack">Geri</button>
   </div>
 
   <div class="card hidden" id="mSettings">
-    <h2>Ayarlar</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">Ayarlar</h2>
     <div class="setting">
       <label>Grafik kalitesi</label>
       <div class="seg" id="qualitySeg">
@@ -168,17 +173,20 @@
     <div class="setting row2"><label for="fpsChk">FPS göstergesi</label><input type="checkbox" id="fpsChk"></div>
     <div class="setting row2"><label for="autoQChk">Kasarsa kaliteyi otomatik düşür</label><input type="checkbox" id="autoQChk"></div>
     <div class="setting row2"><label for="testChk">🧪 Test Modu <small>(ayrı kayıt: tüm kahramanlar açık, sınırsız altın — gerçek ilerlemen etkilenmez)</small></label><input type="checkbox" id="testChk"></div>
+    <div id="installWrap" class="installWrap hidden"><button id="installBtn" type="button">📲 Telefona Yükle</button></div>
+    <button data-go="mHelp">❓ Nasıl Oynanır</button>
+    <button data-go="mStats">📊 İstatistikler</button>
     <button id="ctrlEditBtn">🎮 Kontrolleri düzenle</button>
     <button id="resetBtn" class="danger">İlerlemeyi sıfırla</button>
-    <button data-go="mMain">Geri</button>
+    <button data-go="mMain" class="gBack">Geri</button>
   </div>
 </div>
 
 <!-- ============ SEVİYE ATLAMA ============ -->
 <div id="levelUp" class="overlay hidden">
   <div class="card wide">
-    <h2>Seviye <span id="luLevel">2</span>!</h2>
-    <p class="sub">Bir güçlendirme seç (1 · 2 · 3)</p>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">Seviye Atladın!</h2>
+    <p class="sub">Seviye <b id="luLevel">2</b> · Bir güçlendirme seç (1 · 2 · 3)</p>
     <div id="choices"></div>
     <div class="actions"><button id="rerollBtn">🎲 Yeniden seç (<span id="rerollN">0</span>) · R</button></div>
   </div>
@@ -187,7 +195,7 @@
 <!-- ============ DURAKLAT ============ -->
 <div id="pause" class="overlay hidden">
   <div class="card wide">
-    <h2>Duraklatıldı</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">Duraklatıldı</h2>
     <div class="pauseGrid">
       <div><h3 id="pauseHero">Kahraman</h3><div id="pauseStats" class="statList"></div></div>
       <div><h3>Güçlendirmeler</h3><div id="pauseUps" class="statList"></div></div>
@@ -202,7 +210,7 @@
 <!-- ============ HAZİNE SANDIĞI ============ -->
 <div id="chest" class="overlay hidden">
   <div class="card">
-    <h2>📦 Hazine Sandığı!</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">Hazine Sandığı!</h2>
     <div id="chestReel">❔</div>
     <div id="chestRewards" class="statList"></div>
     <div class="actions"><button id="chestBtn" class="primary hidden">Topla (Boşluk)</button></div>
@@ -212,8 +220,7 @@
 <!-- ============ ZAFER ============ -->
 <div id="victory" class="overlay hidden">
   <div class="card">
-    <div class="logo">👑</div>
-    <h1>ZAFER!</h1>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib gold">ZAFER!</h2>
     <p class="sub">Kemik Kral devrildi. Arena artık senin.</p>
     <div id="victoryStats" class="statList"></div>
     <div class="goldPill big" id="victoryGold"></div>
@@ -227,13 +234,13 @@
 <!-- ============ OYUN SONU ============ -->
 <div id="over" class="overlay hidden">
   <div class="card">
-    <h2>Düştün!</h2>
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib red">Düştün!</h2>
     <div id="overStats" class="statList"></div>
     <div class="goldPill big" id="overGold"></div>
     <div id="overQuests"></div>
     <div class="actions">
       <button id="againBtn" class="primary">Tekrar oyna</button>
-      <button id="overMenuBtn">Ana menü</button>
+      <button id="overMenuBtn">Menü</button>
     </div>
   </div>
 </div>

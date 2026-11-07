@@ -141,6 +141,9 @@ export function initTouch(hud, { onFirstTouch, controls, onControls } = {}) {
   if (isTouchDevice()) enable();
   addEventListener('pointerdown', e => { if (e.pointerType === 'touch') enable(); }, { capture: true });
 
+  // Joystick'e çift dokunma = atılma. Yön için ilk sürüklemeyi (ya da 110 ms) bekler.
+  let lastTap = 0, lastX = 0, lastY = 0, dashPend = false, dashTimer = 0;
+  const fireDash = () => { if (!dashPend) return; dashPend = false; clearTimeout(dashTimer); state.dash = true; };
   zone.addEventListener('pointerdown', e => {
     if (editing) return;
     if (e.pointerType === 'mouse' && !api.enabled) return;
@@ -153,6 +156,9 @@ export function initTouch(hud, { onFirstTouch, controls, onControls } = {}) {
     knob.style.transform = 'translate(0px, 0px)';
     base.classList.add('on');
     state.active = true; state.x = state.y = 0;
+    const now = performance.now();
+    if (now - lastTap < 300 && Math.hypot(cx - lastX, cy - lastY) < 70) { dashPend = true; dashTimer = setTimeout(fireDash, 110); lastTap = 0; }
+    else { lastTap = now; lastX = cx; lastY = cy; }
     e.preventDefault();
   });
   zone.addEventListener('pointermove', e => {
@@ -161,11 +167,12 @@ export function initTouch(hud, { onFirstTouch, controls, onControls } = {}) {
     const d = Math.hypot(dx, dy);
     if (d > R) { dx *= R / d; dy *= R / d; }
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    // Yön × büyüklük (ilk %15 ölü bölge, sonrası analog: az itince yavaş yürür)
+    // Yön × büyüklük: küçük ölü bölge (%6), yolun %60'ında tam hız (az itince de hemen yürür)
     const m = Math.min(1, d / R);
-    const mag = m < 0.15 ? 0 : (m - 0.15) / 0.85;
+    const mag = m < 0.06 ? 0 : Math.min(1, (m - 0.06) / 0.54);
     state.x = d > 0 ? dx / Math.max(d, 0.001) * mag : 0;
     state.y = d > 0 ? dy / Math.max(d, 0.001) * mag : 0;
+    if (dashPend && m > 0.25) fireDash();
     e.preventDefault();
   });
   const end = e => {

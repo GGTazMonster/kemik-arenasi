@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ENEMIES, UPGRADES, SHOP, BUFFS, BUFF_DROP_CHANCE, shopCost, HEROES, EVOS, QUESTS, FINAL_WAVE, ELITE } from './data.js';
-import { sfx, initAudio, setAudio } from './audio.js';
+import { sfx, initAudio, setAudio, playMusic } from './audio.js';
 import { initBosses, updateBoss, updateBossFx, clearBossFx, bossDanger, destroyBulletsNear } from './bosses.js';   // boss saldırıları + fazlar
 import { createCrowd, bindCrowd } from './crowd.js';   // tribünler + seyirciler
 import { createGates } from './gates.js';   // arena kapıları + kapılardan doğuş
@@ -76,13 +76,14 @@ let Q = QUALITY[save.settings.quality] || QUALITY.orta;
 // =====================================================
 //  Sahne
 // =====================================================
-const renderer = new THREE.WebGLRenderer({ antialias: save.settings.quality === 'yuksek', powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: save.settings.quality === 'yuksek', powerPreference: 'high-performance', alpha: true });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2a2236);
-scene.fog = new THREE.Fog(0x2a2236, 40, 70);
+const sceneBg = new THREE.Color(0x1f1430); scene.background = sceneBg;
+let homeDraw = false, subDraw = false;   // ana menüde sadece kahraman / alt sayfada hiç sahne çizilmiyor mu
+scene.fog = new THREE.Fog(0x241838, 40, 70);
 
 const VIEW = 8.5;
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
@@ -92,17 +93,21 @@ let viewEff = VIEW;
 function resize() {
   const w = innerWidth, h = innerHeight, a = w / h;
   renderer.setSize(w, h);
-  viewEff = Math.min(15, Math.max(VIEW, 7 / a));
+  viewEff = Math.min(12.5, Math.max(VIEW, 6.2 / a));   // dikey telefonda daha yakın kamera
   camera.left = -viewEff * a; camera.right = viewEff * a; camera.top = viewEff; camera.bottom = -viewEff;
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
 
-scene.add(new THREE.HemisphereLight(0xc8d4ff, 0x4a3a2a, 1.5));
+const hemi = new THREE.HemisphereLight(0xd2c8ff, 0x4a3560, 1.5); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0d8, 2.2);
 Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 70 });
 sun.shadow.bias = -0.0006;
 scene.add(sun, sun.target);
+hemi.layers.enable(1); sun.layers.enable(1);   // menü vitrininde de aydınlatsın
+// Sadece menü vitrini (katman 1) için ek ışıklar: önden beyaz anahtar ışık + arkadan mor kenar ışığı
+const menuKey = new THREE.DirectionalLight(0xfff4e6, 1.6), menuRim = new THREE.DirectionalLight(0xc070ff, 2.2);
+menuKey.layers.set(1); menuRim.layers.set(1); scene.add(menuKey, menuRim);
 
 function applyQuality() {
   Q = QUALITY[save.settings.quality] || QUALITY.orta;
@@ -142,7 +147,7 @@ function stoneTexture() {
   t.anisotropy = 4;
   return t;
 }
-const floor = new THREE.Mesh(new THREE.CircleGeometry(ARENA_R + 2, 64), new THREE.MeshLambertMaterial({ map: stoneTexture() }));
+const floor = new THREE.Mesh(new THREE.CircleGeometry(ARENA_R + 2, 64), new THREE.MeshLambertMaterial({ map: stoneTexture(), color: 0xb08cf0 }));
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 const outer = new THREE.Mesh(new THREE.RingGeometry(ARENA_R + 1.9, 120, 48, 1), new THREE.MeshBasicMaterial({ color: 0x1c1624 }));
 outer.rotation.x = -Math.PI / 2; outer.position.y = -0.02; scene.add(outer);
@@ -152,7 +157,7 @@ const dummy = new THREE.Object3D();
 const WALL_R = ARENA_R + 2.2, SEG = 36, PILLARS = SEG / 4;
 const walls = new THREE.InstancedMesh(new THREE.BoxGeometry(2 * Math.PI * WALL_R / SEG + 0.05, 1.1, 0.8), new THREE.MeshLambertMaterial({ color: 0x6f6458 }), SEG);
 const pillars = new THREE.InstancedMesh(new THREE.BoxGeometry(1.2, 2.8, 1.2), new THREE.MeshLambertMaterial({ color: 0x8a7e70 }), PILLARS);
-const torchMat = new THREE.MeshBasicMaterial({ color: 0xffa040 });
+const torchMat = new THREE.MeshBasicMaterial({ color: 0xb050ff });
 const torches = new THREE.InstancedMesh(new THREE.SphereGeometry(0.28, 10, 8), torchMat, PILLARS);
 // Kapılar (gates.js): 4 kapı + koridor + parmaklık; kapı ağzındaki duvar/sütun parçaları gizlenir (ölçek 0)
 const arenaGates = createGates({ scene, ARENA_R, WALL_R, SEG, sfx });
@@ -403,7 +408,7 @@ const RIGHT = new THREE.Vector3(1, 0, -1).normalize();   // ekranın sağı
 //  UI yardımcıları
 // =====================================================
 const ui = {
-  hud: $('hud'), hpFill: $('hpFill'), hpTxt: $('hpTxt'), xpFill: $('xpFill'), lvl: $('lvlTxt'), dash: $('dashFill'),
+  hud: $('hud'), hpFill: $('hpFill'), hpTxt: $('hpTxt'), xpFill: $('xpFill'), lvl: $('lvlTxt'), lvlNum: $('lvlNum'), dash: $('dashFill'),
   wave: $('waveTxt'), waveSub: $('waveSub'), time: $('timeTxt'), kills: $('killTxt'), gold: $('goldTxt'),
   buffs: $('buffs'), upBar: $('upgradeBar'), banner: $('banner'), hint: $('hint'), hurt: $('hurt'),
   bossWrap: $('bossWrap'), bossFill: $('bossFill'), bossName: $('bossName'), fps: $('fps'), toast: $('toast'),
@@ -475,7 +480,7 @@ function recompute() {
     interval: (m.interval || 0.85) / (1 + 0.15 * u('aspd')),
     range: (m.range || 2.4) * (ranged ? 1 + 0.05 * u('area') : 1 + 0.15 * u('area')),
     area: 1 + 0.15 * u('area'),
-    speed: 5 * (1 + 0.1 * u('speed') + (m.speed || 0)) * (1 + 0.05 * shopLv('swift')),
+    speed: 6 * (1 + 0.1 * u('speed') + (m.speed || 0)) * (1 + 0.05 * shopLv('swift')),
     maxHp: 100 + (m.hp || 0) + 25 * u('hp') + 10 * shopLv('vitality'),
     regen: 0.6 * u('regen') + (m.regen || 0),
     crit: 0.08 * u('crit') + (m.crit || 0),
@@ -582,7 +587,7 @@ function spawnEnemy(type, opts = {}) {
     run.boss = e;
     ui.bossName.textContent = def.name.toUpperCase();
     ui.bossWrap.classList.remove('hidden');
-    sfx.boss(); shake = 0.5;
+    sfx.boss(); shake = 0.5; playMusic('boss');
     emitGameEvent('bossSpawn', { name: def.name, king: !!def.king });
     if (gate >= 0) { sfx.bossGate(); shake = 0.9; }   // büyük kapıdan fanfarla çıkış
   }
@@ -829,7 +834,7 @@ function killEnemy(e) {
   if (def.boss || Math.random() < BUFF_DROP_CHANCE) dropBuff(pos.x + 0.8, pos.z + 0.8);
   if (run.s.vamp) heal(run.s.vamp, false);
   if (def.boss) {
-    run.bossKills++; run.boss = null;
+    run.bossKills++; run.boss = null; playMusic('savas');
     emitGameEvent('bossKill', { king: !!def.king, name: def.name });
     ui.bossWrap.classList.add('hidden');
     shake = 0.7; freeze = 0.25;
@@ -879,7 +884,7 @@ function hurtPlayer(dmg, src = 'Bilinmeyen') {
   }
   p.dead = true; p.hp = 0;
   play(p, 'Death_A', true, 0.1);
-  sfx.die();
+  sfx.die(); playMusic('yenilgi');
   emitGameEvent('playerDeath', {});
   state = 'dying';
   if (bot) { bot.done = 'dead'; return; }
@@ -1577,7 +1582,7 @@ function clearWorld() {
 }
 
 function startRun() {
-  initAudio();
+  initAudio(); playMusic('savas'); sfx.start?.();
   clearWorld();
   if (!save.heroes[save.hero]) save.hero = 'knight';
   setHero(save.hero);
@@ -1632,7 +1637,7 @@ function showVictory() {
   if (bot) { bot.done = 'win'; return; }
   state = 'victory';
   for (const k in keys) keys[k] = false;
-  sfx.victory();
+  sfx.victory(); playMusic('zafer');
   const bonus = Math.round(150 * run.s.goldMult);
   run.gold += bonus;
   $('victoryStats').innerHTML = rows([
@@ -1648,7 +1653,7 @@ $('endlessBtn').onclick = () => {
   run.endless = true;
   ui.victory.classList.add('hidden');
   state = 'play';
-  banner('∞ Sonsuz mod', 2);
+  banner('∞ Sonsuz mod', 2); playMusic('savas');
   run.breakT = 0;
 };
 $('victoryEndBtn').onclick = () => { sfx.click(); ui.victory.classList.add('hidden'); endRun(); };
@@ -1756,6 +1761,7 @@ function toMenu() {
   ui.menu.classList.remove('hidden');
   showCard('mMain');
   state = 'menu';
+  playMusic('menu');
 }
 
 // =====================================================
@@ -1813,7 +1819,7 @@ function renderHome() {
     let st = save.hero === hid ? `✔ Sv. ${TAL.heroLv(hid)}` : own ? `Sv. ${TAL.heroLv(hid)}` : '';
     if (!own) { const L = heroLockInfo(hid); st = `<span class="bar"><i style="width:${L.cur / L.n * 100}%"></i></span>`; }
     return `<button class="hcard${hid === id ? ' on' : ''}${save.hero === hid ? ' sel' : ''}${own ? '' : ' locked'}" data-pick="${hid}" title="${h.name}">
-      <span class="ic">${h.icon}</span>${own ? '' : '<span class="lk">🔒</span>'}<b>${h.name}</b><small>${st}</small></button>`;
+      <span class="pf"><img src="assets/ui/p-${hid}.png" alt="">${own ? '' : '<span class="lk">🔒</span>'}</span><b>${h.name}</b></button>`;
   }).join('');
   for (const b of $('heroStrip').querySelectorAll('[data-pick]')) b.onclick = () => { initAudio(); pickHero(b.dataset.pick); };
   // Bilgi paneli
@@ -1823,11 +1829,7 @@ function renderHome() {
     lock = `<div class="hiLock">🔒 <b>Kilitli:</b> ${L.text} <b>(${L.cur}/${L.n})</b><span class="bar"><i style="width:${L.cur / L.n * 100}%"></i></span></div>
       <button class="hiBuy" data-buyhome="${id}" ${save.gold < H.cost ? 'disabled' : ''}>🪙 ${H.cost} altınla hemen aç${save.gold < H.cost ? ` (${H.cost - save.gold} eksik)` : ''}</button>`;
   }
-  $('heroInfo').innerHTML = `<div class="hiTop"><span class="ic">${H.icon}</span><div class="hiName"><b>${H.name}</b>
-      <small>${owned ? (save.hero === id ? 'Seçili kahraman' : 'Açık') : 'Kilitli kahraman'}${owned ? `<span class="hiLv">Sv. ${TAL.heroLv(id)} / ${HERO_MAX_LV}</span>` : ''}</small></div>
-      ${owned ? '<button id="talentBtn" class="hiTal">⬆️ Geliştir</button>' : ''}</div>
-    <p>${H.desc}</p><div class="perks">${H.perks.map(p => `<span>${p}</span>`).join('')}</div>
-    <div class="hiSuper">${H.super.icon} <b>Süper: ${H.super.name}</b> · ${H.super.desc}</div>${lock}`;
+  $('heroInfo').innerHTML = `<div class="gName"><i>◆</i><b>${H.name}</b><i>◆</i>${owned ? `<small id="talentBtn" title="Kahraman Seviyesi">Sv. ${TAL.heroLv(id)}</small>` : ''}</div>${lock}`;
   const tb = $('talentBtn');
   if (tb) tb.onclick = () => {
     initAudio(); sfx.click();
@@ -1840,9 +1842,9 @@ function renderHome() {
   const note = $('playNote');
   if (state !== 'loading') {
     playBtn.disabled = !owned;
-    playBtn.textContent = owned ? `⚔️ Oyna · ${H.icon} ${H.name}` : `🔒 ${H.name} kilitli`;
+    playBtn.textContent = owned ? 'OYNA' : '🔒 KİLİTLİ';
   }
-  note.textContent = owned ? '' : `Açmak için: ${heroLockInfo(id).text} — ya da 🪙 ${H.cost} altın`;
+  note.textContent = '';   // kilit koşulu artık isim kurdelesinin altında
   // 3B model (yüklendiyse)
   if (heroChars[id]) {
     if (player !== heroChars[id]) setHero(id);
@@ -1851,6 +1853,16 @@ function renderHome() {
   }
 }
 // Kahraman seçimi (şeritten / klavyeden)
+function stepHero(d) {
+  const ids = Object.keys(HEROES), i = ids.indexOf(menuPreview || save.hero);
+  pickHero(ids[(i + d + ids.length) % ids.length]);
+}
+$('heroPrev').onclick = () => { initAudio(); stepHero(-1); };
+$('heroNext').onclick = () => { initAudio(); stepHero(1); };
+$('tabHero').onclick = () => {
+  initAudio(); sfx.click();
+  if (typeof window.openHeroTalents === 'function') window.openHeroTalents(save.hero);
+};
 function pickHero(id) {
   if (!HEROES[id] || state !== 'menu') return;
   const changed = menuPreview !== id;
@@ -1918,7 +1930,7 @@ function renderQuests() {
   const st = save.stats;
   $('questList').innerHTML = QUESTS.map(q => {
     const done = !!save.quests[q.id], cur = Math.min(q.n, st[q.stat] || 0);
-    return `<div class="quest${done ? ' done' : ''}"><div class="ic">${done ? '✅' : q.reward.hero ? HEROES[q.reward.hero].icon : '🪙'}</div>
+    return `<div class="quest${done ? ' done' : ''}"><div class="ic">${done ? '✅' : q.reward.hero ? HEROES[q.reward.hero].icon : '<img src=\"assets/ui/i-coin.png\" alt=\"\">'}</div>
       <div class="info">${q.text}<small>Ödül: ${rewardText(q.reward)}${done ? ' · Tamamlandı' : ` · ${cur} / ${q.n}`}</small>
       <div class="bar"><i style="width:${(done ? 1 : cur / q.n) * 100}%"></i></div></div></div>`;
   }).join('');
@@ -1938,7 +1950,7 @@ function renderShop() {
     const pips = Array.from({ length: it.max }, (_, i) => `<span class="${i < lv ? 'on' : ''}"></span>`).join('');
     return `<div class="shopItem"><div class="ic">${it.icon}</div>
       <div class="info"><b>${it.name}</b><span class="lv">${lv}/${it.max}</span><small>${it.desc}</small><div class="pips">${pips}</div></div>
-      <button data-buy="${it.id}" ${maxed || save.gold < cost ? 'disabled' : ''}>${maxed ? 'MAKS' : '🪙 ' + cost}</button></div>`;
+      <button data-buy="${it.id}" ${maxed || save.gold < cost ? 'disabled' : ''}>${maxed ? 'MAKS' : '<img class="gc" src="assets/ui/i-coin.png" alt="">' + cost}</button></div>`;
   }).join('');
   for (const b of list.querySelectorAll('[data-buy]')) b.onclick = () => {
     const it = SHOP.find(s => s.id === b.dataset.buy), lv = shopLv(it.id), cost = shopCost(it, lv);
@@ -2029,6 +2041,7 @@ function updateHud(dt) {
   setText(ui.hpTxt, `${Math.ceil(Math.max(0, player.hp))} / ${Math.round(S.maxHp)}`);
   setWidth(ui.xpFill, run.xp / run.xpNeed * 100);
   setText(ui.lvl, `SEVİYE ${run.level}`);
+  setText(ui.lvlNum, String(run.level));
   setWidth(ui.dash, player.dashCd <= 0 ? 100 : (1 - player.dashCd / (player.dashMax || 0.9)) * 100);   // Hafif Ayak yeteneği bekleme süresini kısaltır
   setText(ui.time, fmtTime(run.time));
   setText(ui.kills, String(run.kills));
@@ -2123,12 +2136,29 @@ function loop() {
   camera.lookAt(camFocus);
   sun.position.copy(camFocus).add(tmpV2.set(-12, 25, 8));
   sun.target.position.copy(camFocus);
-  torchMat.color.setHSL(0.08, 1, 0.55 + Math.sin(time * 9) * 0.05);
+  torchMat.color.setHSL(0.76, 1, 0.62 +Math.sin(time * 9) * 0.05);
 
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) ui.banner.style.opacity = 0; }
 
   if (bot && bot.fast) return;   // simülasyonda çizim yok
   crowd.update(realDt, camera);   // seyirciler: uniform + ekran dışı dilimleri gizleme (ucuz)
+  // Menünün alt sayfalarında (dükkan, görevler…) sahne çizilmez; arkada #menuBg görünür
+  const subMenu = !vit && state === 'menu' && !run && !ui.menu.classList.contains('hidden');
+  if (subMenu !== subDraw) { subDraw = subMenu; document.body.classList.toggle('gMenu', subMenu); }
+  if (subMenu) return;
+  // Gotik ana menü: sahneyi değil sadece kahramanı (katman 1) şeffaf zeminle çiz; arkada #menuBg resmi görünür
+  const homeOnly = !!vit;
+  if (homeOnly !== homeDraw) {
+    homeDraw = homeOnly;
+    document.body.classList.toggle('gHome', homeOnly);
+    scene.background = homeOnly ? null : sceneBg;
+    camera.layers.set(homeOnly ? 1 : 0);
+  }
+  if (homeOnly && player) {
+    menuKey.position.copy(player.obj.position).add(CAM_OFFSET); menuKey.target = player.obj;
+    menuRim.position.copy(player.obj.position).add(tmpV2.set(-CAM_OFFSET.x, 8, -CAM_OFFSET.z)); menuRim.target = player.obj;
+  }
+  if (homeOnly && player && !player.obj.userData.l1) { player.obj.traverse(o => o.layers.enable(1)); player.obj.userData.l1 = true; }
   renderer.render(scene, camera);
 
   // FPS ölçümü + kasarsa kaliteyi otomatik düşür

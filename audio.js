@@ -1,6 +1,10 @@
-// Ses efektleri — dosya yok, hepsi WebAudio ile anında üretiliyor.
-let ctx = null, master = null, enabled = true, volume = 0.6, noiseBuf = null;
+// Ses efektleri — CC0 ses dosyaları (sounds/) varsa onlar, yoksa WebAudio sentezi çalar.
+// Müzik: sounds/music + sounds/menu içindeki döngülü parçalar (playMusic ile).
+import { SFX_FILES, SFX_VOL, MUSIC_FILES } from './sounds/sounds.js';
+let ctx = null, master = null, musicBus = null, enabled = true, volume = 0.6, noiseBuf = null;
 const last = {};
+const bufs = {};          // ad -> AudioBuffer (efekt ve müzik)
+let musicNow = null, musicName = null, wantMusic = 'menu';   // oyun menüde açılır
 
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -8,11 +12,50 @@ export function initAudio() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain();
     master.connect(ctx.destination);
+    musicBus = ctx.createGain(); musicBus.gain.value = 0.55; musicBus.connect(master);
     apply();
+    loadAll();
   } catch { ctx = null; }
 }
 export function setAudio(on, vol) { enabled = on; volume = vol; apply(); }
 function apply() { if (master) master.gain.value = enabled ? volume * 0.5 : 0; }
+
+async function loadOne(name, url) {
+  try {
+    const r = await fetch(url); if (!r.ok) return;
+    const ab = await r.arrayBuffer();
+    bufs[name] = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
+    if (wantMusic === name && musicName !== name) playMusic(name);
+  } catch { /* dosya yoksa sentez kalır */ }
+}
+function loadAll() {
+  for (const [n, f] of Object.entries(SFX_FILES)) loadOne(n, 'sounds/' + f);
+  for (const [n, f] of Object.entries(MUSIC_FILES)) loadOne(n, 'sounds/' + f);
+}
+
+// Dosyadan efekt çal (küçük perde oynamasıyla tekrar hissi azalır). Bulunamazsa false.
+function playBuf(name, vol = 1, rate = 1) {
+  const b = bufs[name]; if (!b) return false;
+  const s = ctx.createBufferSource(); s.buffer = b;
+  s.playbackRate.value = rate * (0.94 + Math.random() * 0.12);
+  const g = ctx.createGain(); g.gain.value = vol;
+  s.connect(g); g.connect(master); s.start();
+  return true;
+}
+
+// Müzik: 'menu', 'savas', 'boss' döngülü; 'zafer', 'yenilgi' tek sefer. null = sustur.
+export function playMusic(name) {
+  wantMusic = name;
+  if (!ctx || musicName === name) return;
+  const t = ctx.currentTime;
+  if (musicNow) { const o = musicNow; o.g.gain.setTargetAtTime(0.0001, t, 0.4); o.s.stop(t + 2); musicNow = null; musicName = null; }
+  if (!name || !bufs[name]) return;  // henüz yüklenmediyse yüklenince başlar
+  const s = ctx.createBufferSource(); s.buffer = bufs[name];
+  s.loop = !(name === 'zafer' || name === 'yenilgi');
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.setTargetAtTime(1, t, 0.5);
+  s.connect(g); g.connect(musicBus); s.start();
+  musicNow = { s, g }; musicName = name;
+}
 
 // Aynı ses çok sık çalmasın
 function ok(name, gapMs) {
@@ -127,3 +170,16 @@ export const sfx = {
   gateClose() { if (ok('gateClose', 400)) { noise(0.35, 0.22, 180, 0.7, 'lowpass'); tone(60, 0.35, 'sine', 0.2, 30, 0.05); } },
   bossGate()  { if (ok('bossGate', 1500)) [[147, 0], [147, 0.25], [220, 0.5], [196, 0.95]].forEach(([f, d]) => { tone(f, 0.55, 'sawtooth', 0.07, null, d); tone(f / 2, 0.6, 'triangle', 0.1, null, d); }); },
 };
+
+// Dosyası olan efektleri dosyadan çal; dosya yüklenmediyse eski sentez devam eder.
+const GAP = { hit: 35, gem: 40, coin: 60, arrowHit: 45, swing: 60, kill: 50, crowdCheer: 900, crowdOoh: 1600 };
+for (const name of Object.keys(SFX_FILES)) {
+  const synth = sfx[name];
+  const vol = SFX_VOL[name] ?? 0.8;
+  sfx[name] = function (arg) {
+    if (!bufs[name]) return synth ? synth.call(sfx, arg) : undefined;
+    if (!ok(name, GAP[name] ?? 90)) return;
+    const rate = name === 'gem' ? Math.pow(2, Math.min(arg || 0, 14) / 24) : 1;
+    playBuf(name, name.startsWith('crowd') ? vol * (0.6 + (arg ?? 1) * 0.4) : vol, rate);
+  };
+}
