@@ -7,7 +7,7 @@ export const ENEMIES = {
   minion:  { name: 'Minion',  model: 'minion',  hp: 12, speed: 2.4, dmg: 5,  reach: 1.4, right: 'sAxe',   left: null,      walk: 'Skeletons_Walking', walkAnim: 1.3, xp: 1, radius: 0.45, gold: [0.15, 1], light: true },
   rogue:   { name: 'Haydut',  model: 'rogue',   hp: 9,  speed: 4.1, dmg: 5,  reach: 1.4, right: 'sBlade', left: null,      walk: 'Running_A',         walkAnim: 1.0, xp: 1, radius: 0.45, gold: [0.2, 1],  light: true },
   warrior: { name: 'Savaşçı', model: 'warrior', hp: 34, speed: 1.8, dmg: 10, reach: 1.6, right: 'sBlade', left: 'sShield', walk: 'Skeletons_Walking', walkAnim: 1.2, xp: 3, radius: 0.5,  gold: [0.35, 2] },
-  mage:    { name: 'Büyücü',  model: 'mage',    hp: 18, speed: 2.0, dmg: 9,  ranged: true, right: 'sStaff', left: null,  walk: 'Walking_A',         walkAnim: 1.2, xp: 3, radius: 0.45, gold: [0.3, 2],  light: true },
+  mage:    { name: 'Büyücü',  model: 'mage',    hp: 18, speed: 2.0, dmg: 7,  ranged: true, right: 'sStaff', left: null,  walk: 'Walking_A',         walkAnim: 1.2, xp: 3, radius: 0.45, gold: [0.3, 2],  light: true },
   boss:    { name: 'Kemik Devi', model: 'warrior', hp: 420, speed: 1.7, dmg: 26, reach: 2.4, right: 'sAxe', left: 'sShield', walk: 'Skeletons_Walking', walkAnim: 0.9, xp: 40, radius: 1.1, gold: [1, 30], scale: 2.2, boss: true, ai: 'giant' },
   // Boss saldırı desenleri bosses.js'te (ai alanı). Dalga 5: Kemik Devi, 10: Kemik Nekromantı, 15: Gölge Haydut
   necro:   { name: 'Kemik Nekromantı', model: 'mage', hp: 400, speed: 1.9, dmg: 20, reach: 2.4, right: 'sStaff', left: null, walk: 'Walking_A', walkAnim: 1.0, xp: 60, radius: 1.0, gold: [1, 40], scale: 2.3, boss: true, ai: 'necro' },
@@ -36,7 +36,7 @@ export const HEROES = {
   ranger:    { name: 'Okçu',    icon: '🏹', model: 'ranger',    right: null,     left: 'bow',    attack: 'arrow', cost: 700, unlock: 'k1000',
                desc: 'Düşmanları delip geçen hızlı oklar atar.', perks: ['Oklar 2 düşmanı deler', '+%10 hareket hızı', 'Uzun menzil', '-10 maks. can'], mods: { hp: -10, dmg: -0.15, speed: 0.1, interval: 0.8, range: 8.5 } },
   rogue:     { name: 'Haydut',  icon: '🗡️', model: 'heroRogue', right: 'dagger', left: 'dagger', attack: 'fast',  cost: 1000, unlock: 'win',
-               desc: 'Çok hızlı, kritik vuruşlarla ölümcül.', perks: ['+%15 kritik', '+%8 hız', 'Hançer Yağmuru ile başlar', '%10 zırh'], mods: { crit: 0.15, speed: 0.08, armor: 0.1, dmg: -0.1, interval: 0.42, range: 2.1 }, start: { dagger: 1 } },   // denge 7 Kas: insan oyuncuda fazla kolaydı
+               desc: 'Çok hızlı, kritik vuruşlarla ölümcül.', perks: ['+%15 kritik', '+%8 hız', 'Hançer Yağmuru ile başlar', '%10 zırh'], mods: { crit: 0.15, speed: 0.08, armor: 0.1, dmg: -0.18, interval: 0.5, range: 2.1 }, start: { dagger: 1 } },   // denge 7-8 Kas: veri: 33. dalga, can hiç %93 altına inmedi
 };
 
 // Silah evrimleri: ana silah 5. seviye + gereken pasif ≥1 → seviye atlarken / sandıktan çıkar
@@ -75,7 +75,7 @@ export const UPGRADES = [
   { id: 'magnet', icon: '🧲', name: 'Mıknatıs',         max: 3, desc: () => 'Toplama alanı +%60' },
   { id: 'dagger', icon: '🗡️', name: 'Hançer Yağmuru',   max: 5, desc: l => l === 0 ? 'En yakın düşmana otomatik hançer fırlatır' : '+1 hançer, daha sık atış' },
   { id: 'orbit',  icon: '🛡️', name: 'Dönen Kalkanlar',  max: 5, desc: l => l === 0 ? 'Etrafında dönen ve çarpan bir kalkan' : '+1 kalkan, +%15 hasar' },
-  { id: 'nova',   icon: '✨', name: 'Kutsal Dalga',     max: 5, desc: l => l === 0 ? 'Belli aralıklarla etrafa hasar dalgası' : 'Daha sık, daha geniş, daha güçlü' },
+  { id: 'nova',   icon: '✨', name: 'Kutsal Dalga',     max: 5, offerW: 0.7, desc: l => l === 0 ? 'Belli aralıklarla etrafa hasar dalgası' : 'Daha sık, daha geniş, daha güçlü' },
 ];
 
 // Kalıcı geliştirmeler — altınla ana menüden alınır, kaydedilir

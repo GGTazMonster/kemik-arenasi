@@ -1193,7 +1193,8 @@ const orbMat = new THREE.MeshBasicMaterial({ color: 0xb46bff });
 function fireOrb(e) {
   const m = new THREE.Mesh(orbGeo, orbMat);
   m.position.copy(e.obj.position).setY(1.3);
-  const vel = new THREE.Vector3().subVectors(player.obj.position, e.obj.position).setY(0).normalize().multiplyScalar(8);
+  // Top oyuncudan (6/sn) biraz hızlı ama yana çekilerek kaçılabilir (8 → 6.5; 4-5. dalga zorluğu, 8 Kas)
+  const vel = new THREE.Vector3().subVectors(player.obj.position, e.obj.position).setY(0).normalize().multiplyScalar(6.5);
   scene.add(m);
   orbs.push({ m, vel, life: 3, dmg: e.dmg, src: srcName(e) + ' — Büyü Topu' });
 }
@@ -1267,8 +1268,8 @@ function updateWeapons(dt) {
     const sun = run.evo.sun;
     run.novaT -= dt;
     if (run.novaT <= 0) {
-      run.novaT = 4.2 - 0.45 * (u.nova - 1);
-      const R = (3.2 + 0.35 * u.nova) * (sun ? 1.6 : 1), dmg = 14 * (1 + 0.25 * (u.nova - 1)) * S.dmgMult * (sun ? 2 : 1);
+      run.novaT = 3.7 - 0.4 * (u.nova - 1);   // denge 8 Kas: daha sık, daha geniş, daha güçlü (az seçiliyordu)
+      const R = (3.6 + 0.4 * u.nova) * (sun ? 1.6 : 1), dmg = 18 * (1 + 0.25 * (u.nova - 1)) * S.dmgMult * (sun ? 2 : 1);
       for (const e of enemies) {
         if (!isActive(e)) continue;
         tmpV2.subVectors(e.obj.position, pp).setY(0);
@@ -1359,7 +1360,7 @@ function pickType(w) {
   const opts = [['minion', 5]];
   if (w >= 2) opts.push(['warrior', 1.5 + w * 0.25]);
   if (w >= 3) opts.push(['rogue', 2.5]);
-  if (w >= 4) opts.push(['mage', 1.2 + w * 0.1]);
+  if (w >= 4) opts.push(['mage', 0.5 + w * 0.15]);   // büyücüler yavaş yavaş artsın (Dalga 4: 1.6 → 1.1)
   let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
   for (const [t, wt] of opts) { r -= wt; if (r <= 0) return t; }
   return 'minion';
@@ -1373,7 +1374,7 @@ function startWave() {
     for (let i = 0; i < 12; i++) run.queue.push({ t: pickType(w) });
   } else if (boss) {
     run.queue.push({ t: ['boss', 'necro', 'shade'][(w / 5 - 1) % 3] });   // 5: Kemik Devi, 10: Nekromant, 15: Gölge Haydut
-    for (let i = 0; i < 4 + w * 2; i++) run.queue.push({ t: pickType(w) });
+    for (let i = 0; i < 4 + Math.round(w * (w <= 5 ? 1.2 : 2)); i++) run.queue.push({ t: pickType(w) });   // ilk boss (D5) daha az kalabalık: 14 → 10
   } else {
     const n = 5 + w * 3;
     for (let i = 0; i < n; i++) run.queue.push({ t: pickType(w) });
@@ -1474,8 +1475,8 @@ const FILLERS = [
 ];
 function randomUpgrades(n) {
   const avail = UPGRADES.filter(u => (run.up[u.id] || 0) < u.max);
-  for (let i = avail.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [avail[i], avail[j]] = [avail[j], avail[i]]; }
-  return avail.slice(0, n);
+  // Ağırlıklı karıştırma: offerW < 1 olanlar daha seyrek sunulur (veri: Kutsal Dalga en sık sunulan, en az seçilen)
+  return avail.map(u => [u, Math.pow(Math.random(), 1 / (u.offerW || 1))]).sort((a, b) => b[1] - a[1]).slice(0, n).map(x => x[0]);
 }
 function applyChoice(u) {
   if (u.id === '_gold') run.gold += 25;

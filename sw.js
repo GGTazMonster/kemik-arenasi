@@ -4,7 +4,7 @@
 //  - Modeller, dokular, Three.js (CDN), fontlar: önce önbellek → hızlı ve internetsiz
 //  Yeni sürüm yayınlayınca VERSION'ı artır.
 // =====================================================
-const VERSION = 'kemik-20261107-235613';
+const VERSION = 'kemik-20261108-163312';
 // Modeller/görseller/Three.js ayrı ve KALICI önbellekte: güncellemede yeniden inmez (20 MB). Bir görseli değiştirirsen adını da değiştir.
 const ASSETS = 'kemik-assets-v1';
 const CORE = ['./', './index.html', './style.css', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
