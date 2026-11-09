@@ -15,7 +15,8 @@ export const ENEMIES = {
   // Gölge Haydut'un kopyası: tek atılma yapar, sonra toz olur
   shadeClone: { name: 'Gölge', model: 'rogue', hp: 25, speed: 0, dmg: 22, reach: 1.4, right: 'sBlade', left: 'sBlade', walk: 'Running_A', walkAnim: 1.0, xp: 1, radius: 0.45, gold: [0, 0], scale: 1.4, ai: 'clone', noScale: true },
   // Final boss (Dalga 20): 3 faz (%66 ve %33 canda yeni desenler) — bkz. bosses.js
-  king:    { name: 'Kemik Kral', model: 'mage', hp: 2000, speed: 1.5, dmg: 28, reach: 2.6, right: 'sStaff', left: null, walk: 'Skeletons_Walking', walkAnim: 0.8, xp: 100, radius: 1.3, gold: [1, 60], scale: 2.8, boss: true, king: true, noScale: true, ai: 'king' },
+  // denge 8 Kas: Kral dalgayla güçlenmiyor (noScale); 15. dalga Gölge Haydut'tan (~1550 can, ~47 hasar) zayıf kalıyordu → 2000/28 → 2600/45
+  king:    { name: 'Kemik Kral', model: 'mage', hp: 2600, speed: 1.5, dmg: 45, reach: 2.6, right: 'sStaff', left: null, walk: 'Skeletons_Walking', walkAnim: 0.8, xp: 100, radius: 1.3, gold: [1, 60], scale: 2.8, boss: true, king: true, noScale: true, ai: 'king' },
 };
 
 export const FINAL_WAVE = 20;

@@ -1,4 +1,4 @@
-// =====================================================
+﻿// =====================================================
 //  Arena kapıları
 //  4 kapı (doğu/güney/batı + kuzeyde büyük BOSS KAPISI), arkalarında karanlık koridorlar,
 //  inip kalkan parmaklıklar ve dalga başında parlayan kapı ağızları.
@@ -8,6 +8,7 @@
 // =====================================================
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { inside, extentAlong } from './arena.js';
 
 // Kapı yönleri (derece). Kamera (+x,+z) tarafında durduğu için 180 ve 270 derece kameraya bakar;
 // 270 derece (-z, "kuzey") boss kapısı → ekranda sağ üstte, iyi görünür.
@@ -20,7 +21,9 @@ const DEFS = [
 
 export let gatesApi = null;   // geliştirme/test için: (await import('./gates.js')).gatesApi
 
-export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
+// wallDist(g): merkezden o kapının duvar hattına uzaklık (daire: WALL_R; dikdörtgen: kenar + pay). pal: renkler (2. arena dökümhane).
+export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx, wallDist = null, pal = {} }) {
+  const group = new THREE.Group(); group.name = 'kapilar'; scene.add(group);
   const UP = new THREE.Vector3(0, 1, 0);
   const CORR_LEN = 9;                                   // koridor uzunluğu (duvarın dışına doğru)
   const gates = DEFS.map((d, i) => {
@@ -38,6 +41,7 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
     };
   });
   const bossGate = gates.find(g => g.boss);
+  for (const g of gates) g.wr = wallDist ? wallDist(g) : WALL_R;
 
   // ---------- Statik geometri: çerçeve + koridor (köşe renkli tek mesh) ----------
   const parts = [], col = new THREE.Color(), col2 = new THREE.Color(), m4 = new THREE.Matrix4();
@@ -51,7 +55,7 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
       col.setHex(c1);
       if (c2 !== null) {
         const r = pos.getX(k) * g.u.x + pos.getZ(k) * g.u.z;
-        const f = Math.min(1, Math.max(0, (r - WALL_R - 0.5) / (CORR_LEN - 1.5)));
+        const f = Math.min(1, Math.max(0, (r - g.wr - 0.5) / (CORR_LEN - 1.5)));
         col.lerp(col2.setHex(c2), Math.pow(f, 0.7));
       }
       arr[k * 3] = col.r; arr[k * 3 + 1] = col.g; arr[k * 3 + 2] = col.b;
@@ -59,14 +63,14 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
     geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
     parts.push(geo);
   }
-  const STONE = 0x8a7e70, STONE_D = 0x6f6458, BONE = 0xd8cfb8, VOID = 0x1c1624;
+  const STONE = pal.stone ?? 0x8a7e70, STONE_D = pal.stoneD ?? 0x6f6458, BONE = pal.bone ?? 0xd8cfb8, VOID = pal.void ?? 0x1c1624, CFLOOR = pal.floor ?? 0x4a4048;
   for (const g of gates) {
-    const { hw, H, pw, pd } = g, ph = H + 0.4, lz = WALL_R - (g.boss ? 0.15 : 0);
+    const { hw, H, pw, pd } = g, ph = H + 0.4, lz = g.wr - (g.boss ? 0.15 : 0);
     for (const s of [-1, 1]) {
       box(g, pw, ph, pd, s * (hw + pw / 2), ph / 2, lz, STONE);                                   // kalın sütun
       box(g, pw + 0.3, 0.35, pd + 0.3, s * (hw + pw / 2), 0.175, lz, STONE_D);                   // sütun kaidesi
       // koridor yan duvarları
-      box(g, 0.8, g.boss ? 3.2 : 2.2, CORR_LEN, s * (hw + 0.4), (g.boss ? 3.2 : 2.2) / 2, WALL_R + pd / 2 + CORR_LEN / 2 - 0.05, STONE_D, VOID);
+      box(g, 0.8, g.boss ? 3.2 : 2.2, CORR_LEN, s * (hw + 0.4), (g.boss ? 3.2 : 2.2) / 2, g.wr + pd / 2 + CORR_LEN / 2 - 0.05, STONE_D, VOID);
     }
     const lh = g.boss ? 1.1 : 0.75, lw = 2 * (hw + pw) + 0.4;
     box(g, lw, lh, pd + 0.15, 0, ph + lh / 2, lz, STONE_D);                                      // üst kiriş
@@ -77,12 +81,12 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
       for (const s of [-1, 1]) box(g, pw + 0.5, 0.5, pd + 0.4, s * (hw + pw / 2), ph - 0.25, lz, STONE_D);
     }
     // koridor zemini (arena zemininin hemen altında; boşlukları doldurur, dibe doğru kararır)
-    box(g, 2 * hw + 1.6, 0.04, CORR_LEN + 1.2, 0, -0.025, WALL_R - 0.6 + (CORR_LEN + 1.2) / 2, 0x4a4048, VOID);
+    box(g, 2 * hw + 1.6, 0.04, CORR_LEN + 1.2, 0, -0.025, g.wr - 0.6 + (CORR_LEN + 1.2) / 2, CFLOOR, VOID);
   }
   const frameMesh = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshLambertMaterial({ vertexColors: true }));
   parts.forEach(p => p.dispose());
   frameMesh.castShadow = frameMesh.receiveShadow = true;
-  scene.add(frameMesh);
+  group.add(frameMesh);
 
   // ---------- Parmaklık (portcullis): instanced ince çubuklar ----------
   const bars = [];   // { g, v: dikey mi, lx, w, y0 (yatay için) }
@@ -91,15 +95,15 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
     for (let k = 0; k < nv; k++) bars.push({ g, v: true, lx: -g.hw + (k + 0.5) * (2 * g.hw / nv), w: th });
     for (const f of g.boss ? [0.22, 0.5, 0.78] : [0.3, 0.68]) bars.push({ g, v: false, lx: 0, w: 2 * g.hw, y0: g.H * f });
   }
-  const barMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0x2e2824 }), bars.length);
+  const barMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: pal.bars ?? 0x2e2824 }), bars.length);
   barMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   barMesh.castShadow = true;
-  scene.add(barMesh);
+  group.add(barMesh);
   const vS = new THREE.Vector3(), vP = new THREE.Vector3(), qR = new THREE.Quaternion();
   function syncBars() {
     bars.forEach((b, k) => {
       const g = b.g, o = g.open * g.open * (3 - 2 * g.open);   // yumuşak geçiş
-      const lift = o * (g.H - 0.3), lz = WALL_R + 0.05, top = g.H + 0.15;
+      const lift = o * (g.H - 0.3), lz = g.wr + 0.05, top = g.H + 0.15;
       qR.setFromAxisAngle(UP, Math.PI / 2 - g.a);
       let y, sy;
       if (b.v) { y = (lift + top) / 2; sy = Math.max(0.001, top - lift); vS.set(b.w, sy, b.w); }
@@ -126,22 +130,22 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
   gates.forEach((g, i) => {
     // dikey: parmaklığın arkasında, açıklığı doldurur (altı parlak)
     ax.copy(g.tn).multiplyScalar(2 * g.hw); ay.set(0, g.H, 0); az.copy(g.u);
-    m4.makeBasis(ax, ay, az).setPosition(g.u.x * (WALL_R + 0.45), g.H / 2, g.u.z * (WALL_R + 0.45));
+    m4.makeBasis(ax, ay, az).setPosition(g.u.x * (g.wr + 0.45), g.H / 2, g.u.z * (g.wr + 0.45));
     glowMesh.setMatrixAt(i * 2, m4);
     // yatay: kapının önünde arena zemininde (kapı tarafı parlak, içeri doğru söner)
-    const len = g.boss ? 6 : 4.2, rc = WALL_R + 0.4 - len / 2;
+    const len = g.boss ? 6 : 4.2, rc = g.wr + 0.4 - len / 2;
     ax.copy(g.tn).multiplyScalar(2 * g.hw + 1.2); ay.copy(g.u).multiplyScalar(-len); az.set(0, 1, 0);
     m4.makeBasis(ax, ay, az).setPosition(g.u.x * rc, 0.03, g.u.z * rc);
     glowMesh.setMatrixAt(i * 2 + 1, m4);
     glowMesh.setColorAt(i * 2, black); glowMesh.setColorAt(i * 2 + 1, black);
   });
-  scene.add(glowMesh);
+  group.add(glowMesh);
   const COL_N = new THREE.Color(0xff8a2a), COL_B = new THREE.Color(0xff3020), tmpC = new THREE.Color();
 
   syncBars();
 
   // ---------- Yardımcılar ----------
-  const mouthDist = (g, p) => Math.hypot(p.x - g.u.x * ARENA_R, p.z - g.u.z * ARENA_R);
+  const mouthDist = (g, p) => { const R = extentAlong(g.u.x, g.u.z); return Math.hypot(p.x - g.u.x * R, p.z - g.u.z * R); };
   const segDist = (a, b) => { const d = Math.abs(a - b) % SEG; return Math.min(d, SEG - d); };
   function weightedPick(list, weights) {
     let r = Math.random() * weights.reduce((s, w) => s + w, 0);
@@ -150,7 +154,7 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
   }
 
   const api = {
-    gates, bossGate, CORR_LEN,
+    gates, bossGate, CORR_LEN, group,
     // Kapı ağzına denk gelen duvar parçası mı? (duvar/sütun/meşale buraya konmaz)
     isGateSeg(i) { return gates.some(g => segDist(i, g.seg) <= g.skip); },
     // Dalga başında aktif kapıları seç: oyuncuya en yakın kapı hariç; 1-3. dalga 1 kapı, sonra 2 kapı.
@@ -176,7 +180,7 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
     // Koridorun içinde doğuş noktası (kapının dışında)
     spawnPos(gi, boss) {
       const g = gates[gi];
-      const r = WALL_R + (boss ? 3.4 : 1.5 + Math.random() * 2.5);   // kapı ağzına yakın doğsun (bekleme kısalsın)
+      const r = g.wr + (boss ? 3.4 : 1.5 + Math.random() * 2.5);   // kapı ağzına yakın doğsun (bekleme kısalsın)
       const lat = (Math.random() * 2 - 1) * Math.max(0, g.hw - (boss ? 1.6 : 0.6));
       return { x: g.u.x * r + g.tn.x * lat, z: g.u.z * r + g.tn.z * lat, rot: Math.atan2(-g.u.x, -g.u.z) };
     },
@@ -188,15 +192,15 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
       p.x -= g.u.x * sp * dt; p.z -= g.u.z * sp * dt;
       e.obj.rotation.y = Math.atan2(-g.u.x, -g.u.z);
       const rad = p.x * g.u.x + p.z * g.u.z;
-      if (rad > ARENA_R + 0.3) {   // koridor/kapı içindeyken yan duvarlara çarpmasın
+      if (rad > extentAlong(g.u.x, g.u.z) + 0.3) {   // koridor/kapı içindeyken yan duvarlara çarpmasın
         const lat = p.x * g.tn.x + p.z * g.tn.z, lim = Math.max(0, g.hw - e.def.radius * (e.baseScale || 1) * 0.7);
         const c = Math.max(-lim, Math.min(lim, lat));
         if (c !== lat) { p.x += g.tn.x * (c - lat); p.z += g.tn.z * (c - lat); }
         // geriye itilip koridordan taşmasın
-        const maxR = WALL_R + CORR_LEN - 0.5;
+        const maxR = g.wr + CORR_LEN - 0.5;
         if (rad > maxR) { p.x -= g.u.x * (rad - maxR); p.z -= g.u.z * (rad - maxR); }
       }
-      return Math.hypot(p.x, p.z) < ARENA_R + 0.4;
+      return inside(p.x, p.z, -0.4);
     },
     // Dalga kuyruğu bitti: artık gelen yok → parmaklıklar iner (içeride yürüyen varsa o geçince)
     closeAll() { for (const g of gates) g.active = false; },
@@ -235,6 +239,6 @@ export function createGates({ scene, ARENA_R, WALL_R, SEG, sfx }) {
       this._glowOn = glowing;
     },
   };
-  gatesApi = api;
+  if (!wallDist) gatesApi = api;   // 1. arena kapıları
   return api;
 }

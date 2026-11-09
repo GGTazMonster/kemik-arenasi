@@ -1053,3 +1053,39 @@ body.touch #hint { top: calc(max(8px, env(safe-area-inset-top)) + 84px) !importa
 #menu .logShare.hidden { display: none; }
 #menu .logShare small { color: var(--g-gold1); }
 #menu .logShare textarea { width: 100%; box-sizing: border-box; resize: none; font: 12px/1.3 monospace; color: #e6d4ff; background: #12061f; border: 2px solid var(--g-gold3); border-radius: 8px; padding: 6px; }
+
+/* =====================================================
+   ARENA SEÇİMİ: ana menüde OYNA'nın üstünde ince arena butonu + "Arena Seç" kartı
+   ===================================================== */
+#mMain #heroStrip { margin-bottom: 8px; }
+#mMain #arenaBtn { width: 100%; max-width: 400px; min-height: 46px !important; margin: 0 0 10px; padding: 4px 12px 4px 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+  border-radius: 12px; background: linear-gradient(180deg, #3a1d5e, #1d0c33); border: 2px solid var(--g-gold2);
+  box-shadow: inset 0 0 0 2px #000c, inset 0 0 14px #9b5cff44, 0 4px 0 #0a0412, 0 6px 10px #0009; color: #fff; animation: none; text-align: left; }
+#mMain #arenaBtn:active { transform: translateY(2px); }
+#arenaBtn .gaImg { flex: none; width: 56px; height: 36px; border-radius: 8px; background-size: cover; border: 1px solid var(--g-gold3); box-shadow: inset 0 0 0 1px #000a; }
+#arenaBtn .gaTxt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.1; }
+#arenaBtn .gaTxt small { font-size: 10px; letter-spacing: .18em; color: var(--g-p1); font-weight: 800; }
+#arenaBtn .gaTxt b { font-family: var(--font-display); font-weight: 400; font-size: 18px; color: var(--g-gold1); text-shadow: 0 2px 0 #3a1d00; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#arenaBtn .gaBest { flex: none; font-family: var(--font-display); font-size: 15px; color: #fff; text-shadow: 0 1px 0 #000; }
+#arenaBtn i { flex: none; font-style: normal; font-family: var(--font-display); font-size: 26px; color: var(--g-gold1); line-height: 1; }
+@media (max-height: 700px) { #mMain #arenaBtn { min-height: 40px !important; margin-bottom: 6px; } #arenaBtn .gaImg { height: 30px; } #arenaBtn .gaTxt b { font-size: 16px; } }
+
+#arenaList { display: flex; flex-direction: column; gap: 12px; }
+#menu #mArena .arenaCard { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; min-height: 0; padding: 0; overflow: hidden; text-align: left; cursor: pointer;
+  border-radius: 12px; background: linear-gradient(180deg, #2f1d47, #170b27); box-shadow: inset 0 0 0 2px #6e4a2a, 0 4px 0 #0a0412, 0 6px 12px #0009; text-shadow: none; }
+#menu #mArena .arenaCard.sel { box-shadow: inset 0 0 0 2px var(--g-gold1), 0 0 0 2px var(--g-p1), 0 0 18px 3px var(--g-p2), 0 4px 0 #0a0412; }
+#mArena .arImg { position: relative; display: block; height: 118px; background-size: cover; border-bottom: 2px solid #6e4a2a; }
+#mArena .arenaCard.sel .arImg { border-bottom-color: var(--g-gold2); }
+#mArena .arenaCard.locked .arImg { filter: grayscale(.6) brightness(.6); }
+#mArena .arenaCard.off:not(.locked) .arImg { filter: brightness(.7) saturate(.9); }
+#mArena .arImg em { position: absolute; top: 8px; right: 8px; padding: 2px 10px; border-radius: 99px; font-style: normal; font-family: var(--font-display); font-size: 14px; color: #3a1d00;
+  background: linear-gradient(180deg, var(--g-gold1), var(--g-gold2)); box-shadow: 0 2px 4px #0009; }
+#mArena .arTxt { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 10px; }
+#mArena .arTxt small { font-size: 10px; letter-spacing: .18em; color: var(--g-p1); font-weight: 800; }
+#mArena .arTxt b { font-family: var(--font-display); font-weight: 400; font-size: 22px; color: var(--g-gold1); text-shadow: 0 2px 0 #3a1d00; }
+#mArena .arSub { font-size: 13px; color: #e6d4ff; }
+#mArena .arTag { align-self: flex-start; margin-top: 4px; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; color: var(--g-gold1); background: #00000055; border: 1px solid var(--g-gold3); }
+#mArena .arTag.lock { color: #ffc4ff; border-color: #8a4ad8; }
+#mArena .arTag.soon { color: #ffb070; border-color: #c0581a; }
+.arenaUnlock { margin-top: 8px; font-size: 15px; color: #ffb070; text-shadow: 0 1px 2px #000; }
+.arenaUnlock b { color: var(--g-gold1); }

@@ -12,6 +12,11 @@ import { HERO_TALENTS, HERO_WEAPONS, HERO_MAX_LV } from './data.js';
 import * as SUP from './super.js';   // Süper yetenekler (E/Q, mobilde ⚡)
 import { initTouch } from './touch.js';   // mobil joystick + atılma + süper butonu
 import * as LOG from './stats-log.js';   // yerel oyun verisi günlüğü (bot koşuları kaydedilmez)
+import * as AR from './arena.js';   // arena şekli (daire / dikdörtgen): sınır, rastgele nokta, kenara uzaklık
+import { A2_MUL } from './arena2-denge.js';   // 2. arena düşman çarpanı (sayılar Dengeleme sohbetinin)
+import { createForge, FORGE } from './arena2-scene.js';   // 2. arena görünümü (Kızıl Dökümhane)
+import * as A2 from './arena2.js';   // 2. arena düşmanları (tanımlar, model yükleme, hareket eşleme)
+const EDEF = t => ENEMIES[t] || A2.A2_DEFS[t];   // düşman tanımı: 1. arena (data.js) veya 2. arena
 
 const $ = id => document.getElementById(id);
 
@@ -45,6 +50,7 @@ const TEST_GOLD = 999999;
 function loadSave() {
   const d = {
     gold: 0, shop: {}, hero: 'knight', heroes: { knight: true }, quests: {}, heroTalents: {}, heroLevels: {},
+    arena: 1, arenaBest: {}, arenaOpen: {},   // seçili arena, arena başına en iyi dalga, açılan arenalar
     stats: { bestWave: 0, bestKills: 0, bestTime: 0, bestLevel: 0, totalKills: 0, runs: 0, goldEarned: 0, bossKills: 0, wins: 0, evolutions: 0, eliteKills: 0, bestCombo: 0 },
     // Telefonda/tablette varsayılan kalite Düşük (performans)
     settings: { quality: (window.matchMedia && matchMedia('(pointer: coarse)').matches) ? 'dusuk' : 'orta', sound: true, volume: 0.6, fps: false, autoQ: true,
@@ -54,6 +60,7 @@ function loadSave() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
     return { ...d, ...s, shop: { ...s.shop }, heroes: { ...d.heroes, ...s.heroes }, quests: { ...s.quests }, heroTalents: { ...s.heroTalents }, heroLevels: { ...s.heroLevels },
+             arenaBest: { ...s.arenaBest }, arenaOpen: { ...s.arenaOpen },
              stats: { ...d.stats, ...s.stats }, settings: { ...d.settings, ...s.settings } };
   } catch { return d; }
 }
@@ -63,6 +70,18 @@ for (const id in HEROES) save.heroes[id] = true;
 if (TEST_MODE) {   // her açılışta: altın dolu
   save.gold = Math.max(save.gold, TEST_GOLD);
 }
+// Arenalar. 1: Kemik Arenası (her zaman açık). 2: Kızıl Dökümhane (1. arenada Kemik Kral'ı yenince açılır).
+// ready:false → kart görünür ama henüz oynanamaz ("Yakında"); sahne 4-6. adımlarda gelir.
+const ARENAS = {
+  1: { name: 'Kemik Arenası', sub: 'Mor ayın altında, yuvarlak taş arena.', img: 'assets/ui/bg-menu.jpg', pos: '50% 48%', shape: { shape: 'circle', R: 17 }, ready: true },
+  2: { name: 'Kızıl Dökümhane', sub: 'Lav, örs ve kor. Düşmanlar çok daha güçlü.', img: 'assets/ui/arena2.jpg', pos: '50% 40%', shape: { shape: 'rect', hw: 13, hd: 20, rc: 6 }, ready: true, mul: A2_MUL },
+};
+// Eski kayıt göçü: eski "en yüksek dalga" 1. arenaya yazılır; Kral'ı zaten yenmiş oyuncuya 2. arena açılır
+if (save.arenaBest[1] == null) save.arenaBest[1] = save.stats.bestWave || 0;
+if ((save.stats.wins || 0) > 0 || TEST_MODE) save.arenaOpen[2] = true;
+// Test Modunda yapım aşamasındaki arena da oynanabilir (deneme için)
+const arenaPlayable = n => !!ARENAS[n] && (ARENAS[n].ready || TEST_MODE) && (n === 1 || !!save.arenaOpen[n]);
+if (!arenaPlayable(save.arena)) save.arena = 1;
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch {} }
 // Tek seferlik göç: eski 5'li yetenek dükkanı kalktı → harcanan altın iade edilir, heroTalents sıfırlanır
 let migRefund = 0;
@@ -191,7 +210,8 @@ const pillars = new THREE.InstancedMesh(new THREE.BoxGeometry(1.2, 2.8, 1.2), ne
 const torchMat = new THREE.MeshBasicMaterial({ color: 0xb050ff });
 const torches = new THREE.InstancedMesh(new THREE.SphereGeometry(0.28, 10, 8), torchMat, PILLARS);
 // Kapılar (gates.js): 4 kapı + koridor + parmaklık; kapı ağzındaki duvar/sütun parçaları gizlenir (ölçek 0)
-const arenaGates = createGates({ scene, ARENA_R, WALL_R, SEG, sfx });
+let arenaGates = createGates({ scene, ARENA_R, WALL_R, SEG, sfx });   // etkin arenanın kapıları (2. arenada değişir)
+const gatesA1 = arenaGates;
 for (let i = 0; i < SEG; i++) {
   const a = (i / SEG) * Math.PI * 2, x = Math.cos(a) * WALL_R, z = Math.sin(a) * WALL_R;
   dummy.scale.setScalar(arenaGates.isGateSeg(i) ? 0 : 1);
@@ -208,7 +228,24 @@ scene.add(walls, pillars, torches);
 
 // Tribünler ve seyirciler (crowd.js): 3 çizim çağrısı, animasyon shader'da; olaylara tezahürat/"ooh" ile tepki verir
 const crowd = createCrowd(scene, { wallR: WALL_R, gates: arenaGates.gates, quality: save.settings.quality });
-bindCrowd(crowd, gameEvents, sfx);
+bindCrowd(crowd, gameEvents, new Proxy(sfx, { get: (t, k) => crowd.group.visible ? t[k] : undefined }));   // dökümhanede seyirci sesi yok
+
+// 2. arena (Kızıl Dökümhane) sahnesi: ilk kez açılınca kurulur; 1. arenanın zemin/duvar/seyirci/kapıları gizlenir
+let forge = null, gatesA2 = null;
+const decor1 = new THREE.Group(); scene.add(decor1);   // 1. arena yer süsleri (oklar, kalkanlar)
+function applyArenaScene(n) {
+  const two = n === 2;
+  if (two && !forge) {
+    const { hw, hd, wallOff } = FORGE;
+    gatesA2 = createGates({ scene, ARENA_R, WALL_R, SEG, sfx, wallDist: g => (Math.abs(g.u.x) > 0.5 ? hw : hd) + wallOff,
+      pal: { stone: 0x5a4660, stoneD: 0x3a2a40, bone: 0xff8a2a, void: 0x0c0608, floor: 0x2a1a22, bars: 0x1a1214 } });
+    forge = createForge(scene, gatesA2.gates.map(g => ({ x: g.u.x * g.wr, z: g.u.z * g.wr, tx: g.tn.x, tz: g.tn.z, ux: g.u.x, uz: g.u.z, half: g.hw + g.pw })));
+  }
+  for (const o of [floor, outer, walls, pillars, torches, crowd.group, gatesA1.group, decor1]) o.visible = !two;
+  if (forge) { forge.show(two, { hemi, sun, bg: sceneBg, fog: scene.fog }); gatesA2.group.visible = two; }
+  arenaGates = two ? gatesA2 : gatesA1;
+  arenaGates.reset();
+}
 
 // Paylaşılan basit geometriler/malzemeler
 const blobGeo = new THREE.CircleGeometry(0.55, 20);
@@ -372,7 +409,8 @@ function equipWeapons(c, id, tier) {
 }
 
 function play(c, name, once = false, fade = 0.15, speed = 1) {
-  const clip = CLIPS[name]; if (!clip) return 0;
+  const clip = c.a2 ? A2.a2Clip(c.a2, name) : CLIPS[name]; if (!clip) return 0;   // 2. arena modelleri: KayKit adı → kendi hareketi
+  if (c.a2) name = clip.name;
   const a = c.actions[name] || (c.actions[name] = c.mixer.clipAction(clip));
   if (c.current === a && !once) { a.timeScale = speed; return clip.duration / speed; }
   a.reset();
@@ -560,11 +598,12 @@ function resetPlayer() {
 
 // --- Düşman havuzu (her doğuşta modeli yeniden kopyalamamak için) ---
 function getEnemy(type) {
-  const def = ENEMIES[type];
+  const def = EDEF(type);
   const list = pools[type] || (pools[type] = []);
   let c = list.pop();
   if (!c) {
-    c = makeChar(def.model, def.right, def.left);
+    c = def.a2 ? A2.makeA2Char(scene, def.a2, o => SkeletonUtils.clone(o)) : makeChar(def.model, def.right, def.left);
+    if (def.kor) A2.paintKor(c.obj);   // 2. arena: kor renkli KayKit iskeleti
     c.obj.scale.setScalar(def.scale || 1);
   }
   c.obj.visible = true;
@@ -582,7 +621,7 @@ const eliteRingGeo = new THREE.RingGeometry(0.55, 0.75, 32).rotateX(-Math.PI / 2
 const eliteRingMat = new THREE.MeshBasicMaterial({ color: 0xffc83d, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
 
 function spawnEnemy(type, opts = {}) {
-  const def = ENEMIES[type];
+  const def = EDEF(type);
   const e = getEnemy(type);
   const pp = player.obj.position;
   let x = 0, z = 0, gate = -1, gRot = 0, gateWait = 0;
@@ -594,24 +633,25 @@ function spawnEnemy(type, opts = {}) {
     const sp = arenaGates.spawnPos(gate, !!def.boss);
     x = sp.x; z = sp.z; gRot = sp.rot;
   }
-  const rr = Math.hypot(x, z);
-  if (gate < 0 && rr > ARENA_R - 0.5) { x *= (ARENA_R - 0.5) / rr; z *= (ARENA_R - 0.5) / rr; }
+  if (gate < 0) { const pt = { x, z }; AR.clampPt(pt, 0.5); x = pt.x; z = pt.z; }
   e.obj.position.set(x, 0, z);
   e.obj.rotation.y = gate >= 0 ? gRot : Math.atan2(pp.x - x, pp.z - z);
   const w = run.wave, elite = !!opts.elite;
+  const eMul = elite && !def.elite;   // def.elite (2. arena Zincirli Cellat): zaten güçlü tanımlı, ELITE çarpanı binmez
   // Dalga ilerledikçe düşmanlar güçlenir (denge: data.js değil burada)
   // Geç oyun dengesi: yüksek Kahraman Seviyesi düşmanları da biraz güçlendirir (Sv20 ≈ +%60 can, +%100 hasar; Sv0 etkilenmez)
   const hlv = (save.heroLevels && save.heroLevels[run.hero]) || 0;
   const hpMul = def.noScale ? 1 : (1 + 0.22 * (w - 1)) * (1 + 0.03 * hlv), dmgMul = def.noScale ? 1 : (1 + 0.08 * (w - 1)) * (1 + 0.05 * hlv);
-  const baseScale = (def.scale || 1) * (elite ? ELITE.scale : 1);
+  const baseScale = (def.scale || 1) * (eMul ? ELITE.scale : 1);
   e.obj.scale.setScalar(baseScale);
   if (!e.eliteRing) { e.eliteRing = new THREE.Mesh(eliteRingGeo, eliteRingMat); e.eliteRing.position.y = 0.05; e.obj.add(e.eliteRing); }
   e.eliteRing.visible = elite;
   const dur = gate >= 0 ? (play(e, def.walk, false, 0.01, def.walkAnim), 0)
     : play(e, def.boss ? 'Skeletons_Awaken_Standing' : 'Skeletons_Awaken_Floor', true, 0.01, def.boss ? 0.9 : 1.4);
-  const hp = def.hp * hpMul * (elite ? ELITE.hp : 1);
+  const am = run.mul || {};   // arena/bot düşman çarpanı (2. arena ve denge ölçümü için; yoksa 1)
+  const hp = def.hp * hpMul * (eMul ? ELITE.hp : 1) * (am.hp || 1);
   Object.assign(e, {
-    type, def, elite, hp, hpMax: hp, dmg: def.dmg * dmgMul * (elite ? ELITE.dmg : 1), gate,
+    type, def, elite, hp, hpMax: hp, dmg: def.dmg * dmgMul * (eMul ? ELITE.dmg : 1) * (am.dmg || 1), gate,
     state: gate >= 0 ? 'enter' : 'spawn', t: dur || 1.2, el: 0, cd: 0.6 + Math.random(), knock: new THREE.Vector3(),
     punch: 0, orbitCd: 0, removed: false, hitDone: false, baseScale, summoned: !!opts.summoned, gateWait,
   });
@@ -721,7 +761,7 @@ function dropChest(x, z) {
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; ring.scale.setScalar(1.5);
   g.add(body, lid, band, ring);
   g.traverse(o => { if (o.isMesh && o !== ring) o.castShadow = true; });
-  const r = Math.hypot(x, z); if (r > ARENA_R - 1) { x *= (ARENA_R - 1) / r; z *= (ARENA_R - 1) / r; }
+  { const pt = { x, z }; AR.clampPt(pt, 1); x = pt.x; z = pt.z; }
   g.position.set(x, 0, z);
   scene.add(g);
   chests.push({ g, ring, t: 0 });
@@ -854,7 +894,12 @@ function killEnemy(e) {
   // Kemik parçacıkları
   particles.emit(pos, def.boss ? 40 : e.elite ? 18 : 8, BONE_COL, def.boss ? 7 : 4.5);
   // Tecrübe taşı
-  const xp = def.xp * (e.elite ? ELITE.xp : 1);
+  const xp = def.xp * (e.elite && !def.elite ? ELITE.xp : 1);
+  // Bölünen düşman (2. arena Cüruf Balçığı): ölünce küçük parçalar doğar (dalga sayacını bozmaz)
+  if (def.split) for (let i = 0; i < def.split.n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    spawnEnemy(def.split.into, { at: { x: pos.x + Math.cos(a) * 0.8, z: pos.z + Math.sin(a) * 0.8 }, summoned: true });
+  }
   gems.add(pos.x, pos.z, xp, gemCol(xp));
   // Altın
   const [chance, amount] = def.gold;
@@ -873,7 +918,7 @@ function killEnemy(e) {
     shake = 0.7; freeze = 0.25;
     particles.emit(pos, 40, GOLD_COL, 8);
     if (def.king) {
-      banner('👑 Kemik Kral devrildi!', 3);
+      banner(`👑 ${def.name} devrildi!`, 3);
       // Kalan iskeletler toz olur; kuyrukta bekleyenler artık gelmez (zafer ekranı / sonsuz mod temiz başlasın)
       for (const o of enemies) if (o !== e && o.state !== 'dead') { o.summoned = true; killEnemyQuiet(o); }
       run.queue.length = 0; run.reinf.length = 0; run.waveLeft = 0; arenaGates.closeAll();
@@ -985,8 +1030,7 @@ function updatePlayer(dt) {
   const spd = S.speed * (run.buffs.haste > 0 ? 1.5 : 1);
   if (p.dashT > 0) { p.dashT -= dt; o.position.addScaledVector(p.dashDir, (SUP.superCharging() ? 27 : 17) * dt); }
   else o.position.addScaledVector(move, spd * dt);
-  const r = Math.hypot(o.position.x, o.position.z);
-  if (r > ARENA_R) o.position.multiplyScalar(ARENA_R / r);
+  AR.clampPt(o.position, 0);
 
   // Otomatik saldırı (kahramana göre)
   const atk = HEROES[run.hero].attack;
@@ -1103,8 +1147,7 @@ function botSteer(out) {
   for (const c of chests) { const d = Math.hypot(c.g.position.x - p.x, c.g.position.z - p.z) * 0.5; if (d < gd) { gd = d; gx = c.g.position.x; gz = c.g.position.z; } }
   if (gd < 7 && danger === 0) { out.x += (gx - p.x) / (gd || 1) * 0.8; out.z += (gz - p.z) / (gd || 1) * 0.8; }
   // Duvardan uzak dur
-  const r = Math.hypot(p.x, p.z);
-  if (r > ARENA_R - 4) { out.x -= p.x / r * (r - ARENA_R + 4) * 0.6; out.z -= p.z / r * (r - ARENA_R + 4) * 0.6; }
+  const wp = AR.wallPush(p.x, p.z, 4); out.x += wp.x * 0.6; out.z += wp.z * 0.6;
   if (out.lengthSq() < 0.05) out.set(0, 0, 0);
   bot.dangerT = (bot.dangerT || 0) + (danger ? 1 : 0);
   return danger >= 2;
@@ -1179,8 +1222,7 @@ function updateEnemy(e, dt) {
       break;
     }
   }
-  const r = Math.hypot(o.position.x, o.position.z);
-  if (r > ARENA_R + 0.5 && e.state !== 'enter') o.position.multiplyScalar((ARENA_R + 0.5) / r);
+  if (e.state !== 'enter') AR.clampPt(o.position, -0.5);
 }
 function startAttack(e, clip, hitFrac, speed, cd) {
   const dur = play(e, clip, true, 0.1, speed) || 1;
@@ -1190,13 +1232,14 @@ function startAttack(e, clip, hitFrac, speed, cd) {
 // Büyücü mermisi
 const orbGeo = new THREE.SphereGeometry(0.28, 12, 10);
 const orbMat = new THREE.MeshBasicMaterial({ color: 0xb46bff });
+const fireMat = new THREE.MeshBasicMaterial({ color: 0xff7a1a });   // 2. arena: Kor Ejderi ateş topu
 function fireOrb(e) {
-  const m = new THREE.Mesh(orbGeo, orbMat);
-  m.position.copy(e.obj.position).setY(1.3);
+  const m = new THREE.Mesh(orbGeo, e.def.fire ? fireMat : orbMat);
+  m.position.copy(e.obj.position).setY(e.def.fire ? 1.9 : 1.3);
   // Top oyuncudan (6/sn) biraz hızlı ama yana çekilerek kaçılabilir (8 → 6.5; 4-5. dalga zorluğu, 8 Kas)
-  const vel = new THREE.Vector3().subVectors(player.obj.position, e.obj.position).setY(0).normalize().multiplyScalar(6.5);
+  const vel = new THREE.Vector3().subVectors(player.obj.position, e.obj.position).setY(0).normalize().multiplyScalar(e.def.shotSpeed || 6.5);
   scene.add(m);
-  orbs.push({ m, vel, life: 3, dmg: e.dmg, src: srcName(e) + ' — Büyü Topu' });
+  orbs.push({ m, vel, life: 3, dmg: e.dmg, src: srcName(e) + (e.def.fire ? ' — Ateş Topu' : ' — Büyü Topu') });
 }
 function updateOrbs(dt) {
   const pp = player.obj.position;
@@ -1365,24 +1408,26 @@ function pickType(w) {
   for (const [t, wt] of opts) { r -= wt; if (r <= 0) return t; }
   return 'minion';
 }
+// Etkin arenanın dalga türü seçimi (2. arena: arena2-denge.js)
+const PT = w => run.arena === 2 ? A2.a2PickType(w) : pickType(w);
 function startWave() {
   run.wave++; LOG.logWave();
-  const w = run.wave, final = w === FINAL_WAVE, boss = !final && w % 5 === 0;
+  const w = run.wave, final = w === FINAL_WAVE, boss = !final && w % 5 === 0, a2 = run.arena === 2;
   run.queue = [];
   if (final) {
-    run.queue.push({ t: 'king' });
-    for (let i = 0; i < 12; i++) run.queue.push({ t: pickType(w) });
+    run.queue.push({ t: a2 ? A2.a2BossFor(w) : 'king' });
+    for (let i = 0; i < 12; i++) run.queue.push({ t: PT(w) });
   } else if (boss) {
-    run.queue.push({ t: ['boss', 'necro', 'shade'][(w / 5 - 1) % 3] });   // 5: Kemik Devi, 10: Nekromant, 15: Gölge Haydut
-    for (let i = 0; i < 4 + Math.round(w * (w <= 5 ? 1.2 : 2)); i++) run.queue.push({ t: pickType(w) });   // ilk boss (D5) daha az kalabalık: 14 → 10
+    run.queue.push({ t: a2 ? A2.a2BossFor(w) : ['boss', 'necro', 'shade'][(w / 5 - 1) % 3] });   // 5: Kemik Devi, 10: Nekromant, 15: Gölge Haydut
+    for (let i = 0; i < 4 + Math.round(w * (w <= 5 ? 1.2 : 2)); i++) run.queue.push({ t: PT(w) });   // ilk boss (D5) daha az kalabalık: 14 → 10
   } else {
     const n = 5 + w * 3;
-    for (let i = 0; i < n; i++) run.queue.push({ t: pickType(w) });
+    for (let i = 0; i < n; i++) run.queue.push({ t: PT(w) });
     // Elitler (sandık düşürür): çift dalgalarda 1 tane (Dalga 4'ten itibaren), Dalga 14'ten sonra 2 tane
-    const elites = w >= 4 && w % 2 === 0 ? (w >= 14 ? 2 : 1) : 0;
+    const elites = a2 ? A2.a2Elites(w) : w >= 4 && w % 2 === 0 ? (w >= 14 ? 2 : 1) : 0;
     for (let i = 0; i < elites; i++) {
       const at = Math.floor(run.queue.length * (0.3 + 0.6 * (i + 1) / (elites + 1)));
-      run.queue.splice(at, 0, { t: w >= 6 && Math.random() < 0.5 ? 'warrior' : pickType(w) === 'mage' ? 'warrior' : 'minion', elite: true });
+      run.queue.splice(at, 0, { t: a2 ? 'orc' : w >= 6 && Math.random() < 0.5 ? 'warrior' : pickType(w) === 'mage' ? 'warrior' : 'minion', elite: true });
     }
   }
   run.waveLeft = run.queue.length;
@@ -1390,14 +1435,14 @@ function startWave() {
   run.waveT = 0;
   run.spawnT = boss || final ? 0.8 : 0.15;
   setText(ui.wave, run.endless ? `Dalga ${w} ∞` : `Dalga ${w} / ${FINAL_WAVE}`);
-  if (final) { banner('SON DALGA · Kemik Kral!', 3); sfx.boss(); }
+  if (final) { banner(`SON DALGA · ${EDEF(run.queue[0].t).name}!`, 3); sfx.boss(); }
   else banner(boss ? `Dalga ${w} · BOSS!` : `Dalga ${w}`, 2);
   emitGameEvent('waveStart', { wave: w, boss, final });
 }
 // Boss takviyeleri: dalga kuyruğundan ayrı (summoned → run.waveLeft'i bozmaz), kapılardan gelir
 function queueReinforce(n, elites = 0) {
   const w = run.wave;
-  for (let i = 0; i < n; i++) run.reinf.push({ t: pickType(w), elite: i < elites });
+  for (let i = 0; i < n; i++) run.reinf.push({ t: PT(w), elite: i < elites });
   run.reinfSpawnT = Math.min(run.reinfSpawnT, 0.8);
 }
 function updateReinforce(dt) {
@@ -1617,13 +1662,25 @@ function clearWorld() {
   clearInterval(chestTimer);
 }
 
-function startRun() {
+// OYNA / Tekrar: 2. arenanın modelleri inmediyse önce indir (≈5 MB, bir kez), sonra başlat
+function launchRun() {
+  if (!(arenaPlayable(save.arena) && save.arena === 2) || A2.a2Loaded()) return startRun();
+  playBtn.disabled = true; playBtn.textContent = 'Yükleniyor…';
+  toast('🔥 Kızıl Dökümhane yükleniyor…');
+  A2.ensureArena2().then(() => { playBtn.disabled = false; playBtn.textContent = 'OYNA'; if (state === 'menu' || state === 'over') startRun(); })
+    .catch(err => { console.error(err); playBtn.disabled = false; playBtn.textContent = 'OYNA'; toast('⚠️ Dökümhane yüklenemedi. İnternetini kontrol et.'); });
+}
+function startRun(arenaOverride) {   // arenaOverride: bot/test için arenayı zorla (henüz hazır olmasa da)
   initAudio(); playMusic('savas'); sfx.start?.();
   clearWorld();
   if (!save.heroes[save.hero]) save.hero = 'knight';
   setHero(save.hero);
   setSilhouette(player, false);   // menüde kilitliyken siluet olup koşu sırasında açılan kahraman siyah kalmasın
   run = newRun();
+  run.arena = ARENAS[arenaOverride] ? +arenaOverride : arenaPlayable(save.arena) ? save.arena : 1;
+  AR.setArena(ARENAS[run.arena].shape);
+  applyArenaScene(run.arena);
+  if (ARENAS[run.arena].mul) run.mul = { ...ARENAS[run.arena].mul };
   const H = HEROES[run.hero];
   for (const k in H.start || {}) run.up[k] = H.start[k];
   recompute();
@@ -1673,13 +1730,17 @@ function showVictory() {
   emitGameEvent('victory', {});
   if (bot) { bot.done = 'win'; return; }
   state = 'victory';
+  // 1. arenada Kemik Kral yenildi → Kızıl Dökümhane açılır (bir kere)
+  const unlock = run.arena === 1 && !save.arenaOpen[2];
+  if (unlock) { save.arenaOpen[2] = true; persist(); }
   for (const k in keys) keys[k] = false;
   sfx.victory(); playMusic('zafer');
   const bonus = Math.round(150 * run.s.goldMult);
   run.gold += bonus;
-  $('victoryStats').innerHTML = rows([['Süre', fmtTime(run.time)], ['Devrilen iskelet', run.kills]])
+  $('victoryStats').innerHTML = rows([['Süre', fmtTime(run.time)], [run.arena === 2 ? 'Devrilen düşman' : 'Devrilen iskelet', run.kills]])
     + more([['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`], ['Seviye', run.level], ['En uzun seri', run.bestCombo]]);
-  $('victoryGold').innerHTML = `Zafer bonusu +${bonus} altın`;
+  $('victoryGold').innerHTML = `Zafer bonusu +${bonus} altın`
+    + (unlock ? `<div class="arenaUnlock">🔓 Yeni arena açıldı: <b>${ARENAS[2].name}</b></div>` : '');
   ui.victory.classList.remove('hidden');
   checkQuests();
 }
@@ -1712,7 +1773,9 @@ function endRun() {
   const earned = run.gold + bonus;
   save.gold += earned;
   const st = save.stats;
-  const newBest = run.wave > st.bestWave;
+  const ab = save.arenaBest, ar = run.arena || 1;
+  const newBest = run.wave > (ab[ar] || 0);
+  ab[ar] = Math.max(ab[ar] || 0, run.wave);   // arena başına en iyi dalga
   Object.assign(st, liveStats());
   st.runs++; st.goldEarned += earned;
   st.bestKills = Math.max(st.bestKills, run.kills); st.bestTime = Math.max(st.bestTime, run.time);
@@ -1722,7 +1785,7 @@ function endRun() {
   ui.over.querySelector('h2').textContent = run.won ? '👑 Zafer kaydedildi!' : 'Düştün!';
   // Temel bilgiler görünür; geri kalanı "Ayrıntılar" altında (ekran kısa kalsın, kaydırma gerekmesin)
   $('overStats').innerHTML = rows([
-    ['Ulaşılan dalga', run.wave + (newBest ? ' 🏆' : '')], ['Süre', fmtTime(run.time)], ['Devrilen iskelet', run.kills],
+    ['Ulaşılan dalga', run.wave + (newBest ? ' 🏆' : '')], ['Süre', fmtTime(run.time)], [run.arena === 2 ? 'Devrilen düşman' : 'Devrilen iskelet', run.kills],
   ]) + more([
     ['Kahraman', `${HEROES[run.hero].icon} ${HEROES[run.hero].name}`], ['Seviye', run.level], ['En uzun seri', run.bestCombo],
     ['Verilen toplam hasar', Math.round(run.dmgDealt).toLocaleString('tr-TR')], ['Altın', `toplanan ${run.gold} + dalga bonusu ${bonus}`],
@@ -1810,12 +1873,13 @@ if ($('pauseSetBtn')) $('pauseSetBtn').onclick = () => {
   sfx.click(); pauseSettings = true; document.body.classList.add('pauseSet');
   ui.pause.classList.add('hidden'); ui.menu.classList.remove('hidden'); showCard('mSettings');
 };
-$('againBtn').onclick = () => { sfx.click(); startRun(); };
+$('againBtn').onclick = () => { sfx.click(); launchRun(); };
 $('overMenuBtn').onclick = () => { sfx.click(); toMenu(); };
 
 function toMenu() {
   clearWorld();
   run = null;
+  AR.setArena(ARENAS[1].shape); applyArenaScene(1);   // menü sahnesi 1. arena
   if (player) setHero(save.hero);
   menuPreview = save.hero;   // menü vitrini seçili kahramanla açılsın
   for (const el of [ui.over, ui.pause, ui.levelUp, ui.hud, ui.chest, ui.victory]) el.classList.add('hidden');
@@ -1835,6 +1899,7 @@ function showCard(id) {
   if (id === 'mStats') renderStats();
   if (id === 'mSettings') renderSettings();
   if (id === 'mQuests') renderQuests();
+  if (id === 'mArena') renderArenas();
   // Ana menü: karakter vitrini düzeni (yarı saydam arka plan, kamera yakınlaşır)
   ui.menu.classList.toggle('home', id === 'mMain');
   if (id === 'mMain') renderHome();
@@ -1906,6 +1971,10 @@ function renderHome() {
     playBtn.textContent = owned ? 'OYNA' : '🔒 KİLİTLİ';
   }
   note.textContent = '';   // kilit koşulu artık isim kurdelesinin altında
+  // Arena seçme butonu (OYNA'nın üstünde): seçili arena + en iyi dalga
+  const A = ARENAS[save.arena] || ARENAS[1];
+  $('arenaBtn').innerHTML = `<span class="gaImg" style="background-image:url(${A.img});background-position:${A.pos}"></span>
+    <span class="gaTxt"><small>ARENA</small><b>${A.name}</b></span><span class="gaBest">🏆 ${save.arenaBest[save.arena] || 0}</span><i>›</i>`;
   // 3B model (yüklendiyse)
   if (heroChars[id]) {
     if (player !== heroChars[id]) setHero(id);
@@ -1987,6 +2056,30 @@ function updateMenuVitrine(dt, time) {
   updateFx(dt);   // seçim halkası efektleri menüde de oynasın
   return vitOut;
 }
+// Arena seçme kartı: resim + ad + en iyi dalga; kilitli / yakında durumları
+function renderArenas() {
+  $('arenaList').innerHTML = Object.entries(ARENAS).map(([n, A]) => {
+    n = +n;
+    const open = n === 1 || !!save.arenaOpen[n], ok = arenaPlayable(n), sel = save.arena === n;
+    const tag = !open ? `<span class="arTag lock">🔒 1. arenada Kemik Kral'ı yen</span>`
+      : !A.ready && !TEST_MODE ? `<span class="arTag soon">🔥 Yapım aşamasında · Yakında</span>`
+      : !A.ready ? `<span class="arTag soon">🧪 Test: yapım aşamasında</span>`
+      : `<span class="arTag">🏆 En iyi: Dalga ${save.arenaBest[n] || 0}</span>`;
+    return `<button type="button" class="arenaCard${sel ? ' sel' : ''}${ok ? '' : ' off'}${open ? '' : ' locked'}" data-arena="${n}">
+      <span class="arImg" style="background-image:url(${A.img});background-position:${A.pos}">${sel ? '<em>✔ Seçili</em>' : ''}</span>
+      <span class="arTxt"><small>${n}. ARENA</small><b>${A.name}</b><span class="arSub">${A.sub}</span>${tag}</span></button>`;
+  }).join('');
+  for (const b of $('arenaList').querySelectorAll('[data-arena]')) b.onclick = () => {
+    const n = +b.dataset.arena;
+    if (!arenaPlayable(n)) {
+      sfx.click();
+      toast(save.arenaOpen[n] || n === 1 ? `🔥 ${ARENAS[n].name} yakında açılıyor!` : `🔒 Önce 1. arenada 20. dalgadaki Kemik Kral'ı yen.`);
+      return;
+    }
+    sfx.buff(); save.arena = n; persist(); showCard('mMain');
+    if (n === 2) A2.ensureArena2().catch(() => {});   // modelleri arkada indirmeye başla
+  };
+}
 function renderQuests() {
   const st = save.stats;
   $('questList').innerHTML = QUESTS.map(q => {
@@ -2001,7 +2094,7 @@ for (const b of document.querySelectorAll('[data-go]')) {
     initAudio(); sfx.click();
     const go = b.dataset.go;
     if (go === 'mMain' && pauseSettings) { closePauseSettings(true); return; }
-    if (go === 'play') startRun(); else showCard(go);
+    if (go === 'play') launchRun(); else showCard(go);
   });
 }
 
@@ -2024,7 +2117,8 @@ function renderShop() {
 function renderStats() {
   const s = save.stats;
   $('statsList').innerHTML = rows([
-    ['En yüksek dalga', s.bestWave], ['En çok öldürme (tek koşu)', s.bestKills], ['En uzun süre', fmtTime(s.bestTime)], ['En yüksek seviye', s.bestLevel],
+    ...Object.keys(ARENAS).filter(n => n === '1' || save.arenaOpen[n]).map(n => [`En yüksek dalga · ${ARENAS[n].name}`, save.arenaBest[n] || 0]),
+    ['En çok öldürme (tek koşu)', s.bestKills], ['En uzun süre', fmtTime(s.bestTime)], ['En yüksek seviye', s.bestLevel],
     ['Toplam koşu', s.runs], ['Toplam devrilen iskelet', s.totalKills], ['Devrilen boss', s.bossKills], ['Toplam kazanılan altın', s.goldEarned],
   ]);
 }
@@ -2108,8 +2202,8 @@ function updateHud(dt) {
   setText(ui.time, fmtTime(run.time));
   setText(ui.kills, String(run.kills));
   setText(ui.gold, String(run.gold));
-  setText(ui.waveSub, run.wave === FINAL_WAVE && !run.won ? 'Kemik Kral\'ı devir!'
-    : run.queue.length || enemies.some(e => e.state !== 'dead') ? `Kalan iskelet: ${run.waveLeft}` : 'Sıradaki dalga geliyor…');
+  setText(ui.waveSub, run.wave === FINAL_WAVE && !run.won ? (run.arena === 2 ? 'Erimiş Ejder\'i devir!' : 'Kemik Kral\'ı devir!')
+    : run.queue.length || enemies.some(e => e.state !== 'dead') ? `Kalan ${run.arena === 2 ? 'düşman' : 'iskelet'}: ${run.waveLeft}` : 'Sıradaki dalga geliyor…');
   if (run.boss) setWidth(ui.bossFill, run.boss.hp / run.boss.hpMax * 100);
 
   // Süreli güçlendirmeler
@@ -2169,7 +2263,7 @@ function loop() {
     updateWeapons(dt);
     run.gemT -= dt; if (run.gemT <= 0) run.gemChain = 0;
     updatePickups(gems, dt, it => { sfx.gem(run.gemChain++); run.gemT = 0.5; gainXp(it.v); });
-    updatePickups(coins, dt, it => { sfx.coin(); const g = Math.max(1, Math.round(it.v * run.s.goldMult)); run.gold += g; });
+    updatePickups(coins, dt, it => { sfx.coin(); const g = Math.max(1, Math.round(it.v * run.s.goldMult * (run.arena === 2 ? A2.A2_REWARD.gold : 1))); run.gold += g; });
     updateBuffDrops(dt, time);
     updateChests(dt);
     if (state === 'play') updateWaves(dt);
@@ -2203,7 +2297,8 @@ function loop() {
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) ui.banner.style.opacity = 0; }
 
   if (bot && bot.fast) return;   // simülasyonda çizim yok
-  crowd.update(realDt, camera);   // seyirciler: uniform + ekran dışı dilimleri gizleme (ucuz)
+  if (forge) forge.update(realDt, time);   // 2. arena: lav akışı, kor titremesi, kıvılcımlar
+  if (crowd.group.visible) crowd.update(realDt, camera);   // seyirciler: uniform + ekran dışı dilimleri gizleme (ucuz)
   // Menünün alt sayfalarında (dükkan, görevler…) sahne çizilmez; arkada #menuBg görünür
   const subMenu = !vit && (state === 'menu' || state === 'loading') && !run && !ui.menu.classList.contains('hidden');
   if (subMenu !== subDraw) { subDraw = subMenu; document.body.classList.toggle('gMenu', subMenu); }
@@ -2253,10 +2348,10 @@ function decorate() {
   for (let i = 0; i < 14; i++) {
     const k = i < 11 ? 'sArrow' : 'sShieldB';
     const m = G[k].scene.clone();
-    const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * (ARENA_R - 3);
-    m.position.set(Math.cos(a) * r, 0.05, Math.sin(a) * r);
+    const rp = AR.randomPoint(3);
+    m.position.set(rp.x, 0.05, rp.z);
     m.rotation.set(k === 'sShieldB' ? -Math.PI / 2 : Math.PI / 2, 0, Math.random() * Math.PI * 2);
-    scene.add(m);
+    decor1.add(m);
   }
 }
 
@@ -2298,6 +2393,7 @@ loadAll().then(() => {
   state = 'menu';
   checkQuests();
   playBtn.disabled = false; playBtn.textContent = 'Oyna';
+  if (save.arena === 2 && arenaPlayable(2)) A2.ensureArena2().catch(() => {});   // seçili arena dökümhaneyse modelleri arkada indir
   if (!ui.menu.classList.contains('hidden')) renderHome();   // seçili kahraman modeli + Oyna butonu
   if (migRefund > 0) toast(`⬆️ Yetenek dükkanı artık Kahraman Seviyesi! Harcadığın 🪙 ${migRefund} altın iade edildi.`);
 }).catch(err => { console.error(err); playBtn.textContent = 'Yükleme hatası (konsola bak)'; });
@@ -2339,22 +2435,28 @@ window.__game = {
   },
   // Test yardımcıları (sadece geliştirme için)
   dev: {
-    start(hero, wave = 1) { save.heroes[hero] = true; save.hero = hero; startRun(); if (wave > 1) { clearWorld(); run.wave = wave - 1; startWave(); } },
+    start(hero, wave = 1, arena) {
+      if (+arena === 2 && !A2.a2Loaded()) return A2.ensureArena2().then(() => this.start(hero, wave, arena));
+      save.heroes[hero] = true; save.hero = hero; startRun(arena); if (wave > 1) { clearWorld(); run.wave = wave - 1; startWave(); } },
     spawn: (t, elite) => spawnEnemy(t, { elite }), chest: () => dropChest(player.obj.position.x + 1.5, player.obj.position.z), xp: v => gainXp(v),
     up(id, n) { run.up[id] = n; recompute(); renderUpgradeBar(); }, god() { player.hp = 1e6; run.s.maxHp = 1e6; },
     get save() { return save; },
     // Süper testi: çubuğu doldur / kullan; kahraman seviyesini (geçici) ayarla ve koşuyu yeniden hesapla
     superFill() { SUP.superFill(); }, superUse() { return SUP.superUse(null); }, superCharge: () => SUP.superCharge(),
     level(hero, n) { save.heroLevels = { ...save.heroLevels, [hero]: n }; if (heroChars[hero]) equipWeapons(heroChars[hero], hero, TAL.hasMilestone(hero, 'weapon') ? 1 : 0); if (run) recompute(); },
+    arena: cfg => AR.setArena(cfg),   // örn. {shape:'rect', hw:12, hd:19} — şimdilik sadece mantık (görünüm 4. adımda)
     sim(sec) { forcedDt = 1 / 30; for (let i = 0; i < sec * 30; i++) loop(); forcedDt = null; clock.getDelta(); },
     // Bot ile tam bir koşu simüle et → dalga dalga sonuç döner. shop: geçici kalıcı-geliştirme seviyeleri
     // heroLevel: kahraman seviyesi 0..20 (yetenekler + stat + silah + Süper ustalığı buradan türer) — geçici, kalıcı kayda yazılmaz
-    async botRun(hero, { shop = {}, maxMin = 25, heroLevel = 0, noSuper = false } = {}) {
+    // arena: 1 | 2 — 2. arenada şekil dikdörtgen ve run.mul = A2_MUL (mul verilirse o geçerli)
+    async botRun(hero, { shop = {}, maxMin = 25, heroLevel = 0, noSuper = false, mul = null, arena = 1 } = {}) {
       const realShop = save.shop, realHeroes = save.heroes, realHero = save.hero, realLv = save.heroLevels;
       save.shop = shop; save.heroes = { ...realHeroes, [hero]: true }; save.hero = hero;
       save.heroLevels = { ...realLv, [hero]: heroLevel };
+      if (+arena === 2) await A2.ensureArena2();
       bot = { fast: true, done: null, noSuper };
-      startRun();
+      startRun(arena);
+      if (mul) run.mul = mul;   // ör. { hp: 1.5, dmg: 1.3 } — tüm düşmanlar (Kral dahil)
       const waves = []; let lastWave = 1, waveStart = 0, hpAtStart = player.hp, minHp = 1;
       forcedDt = 1 / 30;
       try {
@@ -2373,9 +2475,10 @@ window.__game = {
       } catch (err) { bot.error = String(err && err.stack || err).slice(0, 400); }
       finally {
         forcedDt = null; clock.getDelta();
-        const res = { hero, result: bot.error ? 'HATA: ' + bot.error : bot.done || 'timeout', wave: run.wave, time: Math.round(run.time), level: run.level, kills: run.kills,
+        const res = { hero, arena: run.arena, result: bot.error ? 'HATA: ' + bot.error : bot.done || 'timeout', wave: run.wave, time: Math.round(run.time), level: run.level, kills: run.kills,
                       hp: Math.round(player.hp), maxHp: Math.round(run.s.maxHp), minHpPct: Math.round(minHp * 100), gold: run.gold,
-                      upLevels: Object.values(run.up).reduce((a, b) => a + b, 0), ups: { ...run.up }, evo: Object.keys(run.evo), waves };
+                      upLevels: Object.values(run.up).reduce((a, b) => a + b, 0), ups: { ...run.up }, evo: Object.keys(run.evo), waves,
+                      dmgBy: Object.fromEntries(Object.entries(run.dmgBy).map(([k, v]) => [k, Math.round(v)])), lastHit: run.lastHit && run.lastHit.src };
         bot = null;
         save.shop = realShop; save.heroes = realHeroes; save.hero = realHero; save.heroLevels = realLv;
         run.counted = true;   // istatistiklere/kayda yazılmasın

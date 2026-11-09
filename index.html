@@ -89,6 +89,7 @@
     </div>
     <div id="heroInfo"></div>
     <div id="heroStrip"></div>
+    <button type="button" id="arenaBtn" class="gArena" data-go="mArena"></button>
     <div class="gPlay">
       <img src="assets/ui/bones.png" alt="">
       <button class="primary" data-go="play" id="playBtn" disabled>Yükleniyor…</button>
@@ -101,6 +102,13 @@
       <button type="button" data-go="mQuests"><img src="assets/ui/i-quest.png" alt=""><span>Görevler</span><span id="questBadge" class="badge hidden"></span></button>
       <button type="button" data-go="mSettings"><img src="assets/ui/i-settings.png" alt=""><span>Ayarlar</span></button>
     </nav>
+  </div>
+
+  <div class="card wide hidden" id="mArena">
+    <img class="gOrn" src="assets/ui/skull-hang.png" alt=""><h2 class="gRib">Arena Seç</h2>
+    <p class="sub">Her arenanın kendi düşmanları ve en iyi dalgası var.</p>
+    <div id="arenaList"></div>
+    <button data-go="mMain" class="gBack">Geri</button>
   </div>
 
   <div class="card wide hidden" id="mQuests">

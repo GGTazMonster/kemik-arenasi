@@ -5,6 +5,7 @@
 //  Sv.20 (talents.js S.t.master) Süper'i güçlendirir. game.js, initSuper() ile gereken arayüzü verir.
 // =====================================================
 import * as THREE from 'three';
+import { clampPt } from './arena.js';
 
 let A = null;
 export function initSuper(api) { A = api; }
@@ -260,7 +261,7 @@ function startMage() {
   S.cur = { kind: 'mage', t: 0, update: (dt, c) => c.t >= 0.4 };   // kısa süre meşgul (başka Süper başlamaz)
   return true;
 }
-function arenaClampPt(s) { const d = Math.hypot(s.x, s.z); if (d > 15.5) { s.x *= 15.5 / d; s.z *= 15.5 / d; } }
+function arenaClampPt(s) { clampPt(s, 1.5); }
 
 // =====================================================
 //  OKÇU — Ok Yağmuru
