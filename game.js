@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ENEMIES, UPGRADES, SHOP, BUFFS, BUFF_DROP_CHANCE, shopCost, HEROES, EVOS, QUESTS, FINAL_WAVE, ELITE } from './data.js';
-import { sfx, initAudio, setAudio, playMusic } from './audio.js';
-import { initBosses, updateBoss, updateBossFx, clearBossFx, bossDanger, destroyBulletsNear } from './bosses.js';   // boss saldırıları + fazlar
+import { ENEMIES, UPGRADES, SHOP, BUFFS, BUFF_DROP_CHANCE, shopCost, HEROES, EVOS, QUESTS, FINAL_WAVE, ELITE, waveHpMul, waveDmgMul } from './data.js';
+import { sfx, initAudio, setAudio, playMusic, setMusicArena } from './audio.js';
+import { initBosses, updateBoss, updateBossFx, clearBossFx, bossDanger, fireRain } from './bosses.js';   // boss saldırıları + fazlar
 import { createCrowd, bindCrowd } from './crowd.js';   // tribünler + seyirciler
 import { createGates } from './gates.js';   // arena kapıları + kapılardan doğuş
 import * as TAL from './talents.js';   // kahramana özel kalıcı yetenekler
@@ -553,7 +553,7 @@ function recompute() {
     area: 1 + 0.15 * u('area'),
     speed: 6 * (1 + 0.1 * u('speed') + (m.speed || 0)) * (1 + 0.05 * shopLv('swift')),
     maxHp: 100 + (m.hp || 0) + 25 * u('hp') + 10 * shopLv('vitality'),
-    regen: 0.6 * u('regen') + (m.regen || 0),
+    regen: 0.4 * u('regen') + (m.regen || 0),   // denge 9 Kas: 0.6 → 0.4 (geç oyunda can dolumu hasarın ~2,5 katıydı)
     crit: 0.08 * u('crit') + (m.crit || 0),
     vamp: u('vamp'),
     magnet: 2.2 * (1 + 0.6 * u('magnet')),
@@ -641,7 +641,7 @@ function spawnEnemy(type, opts = {}) {
   // Dalga ilerledikçe düşmanlar güçlenir (denge: data.js değil burada)
   // Geç oyun dengesi: yüksek Kahraman Seviyesi düşmanları da biraz güçlendirir (Sv20 ≈ +%60 can, +%100 hasar; Sv0 etkilenmez)
   const hlv = (save.heroLevels && save.heroLevels[run.hero]) || 0;
-  const hpMul = def.noScale ? 1 : (1 + 0.22 * (w - 1)) * (1 + 0.03 * hlv), dmgMul = def.noScale ? 1 : (1 + 0.08 * (w - 1)) * (1 + 0.05 * hlv);
+  const hpMul = def.noScale ? 1 : waveHpMul(w) * (1 + 0.03 * hlv), dmgMul = def.noScale ? 1 : waveDmgMul(w) * (1 + 0.05 * hlv);   // data.js WAVE_SCALE (10. dalgadan sonra eğim artar)
   const baseScale = (def.scale || 1) * (eMul ? ELITE.scale : 1);
   e.obj.scale.setScalar(baseScale);
   if (!e.eliteRing) { e.eliteRing = new THREE.Mesh(eliteRingGeo, eliteRingMat); e.eliteRing.position.y = 0.05; e.obj.add(e.eliteRing); }
@@ -910,7 +910,12 @@ function killEnemy(e) {
   if (e.elite || (def.boss && !def.king)) { dropChest(pos.x, pos.z); freeze = Math.max(freeze, 0.07); }
   if (e.elite) run.eliteKills++;
   if (def.boss || Math.random() < BUFF_DROP_CHANCE) dropBuff(pos.x + 0.8, pos.z + 0.8);
-  if (run.s.vamp) heal(run.s.vamp, false);
+  // Kan Emici (denge 9 Kas): öldürme başına 0.5/sv, en çok 3 can/sn (kalabalıkta sınırsız dolum olmasın)
+  if (run.s.vamp) {
+    if (run.time - (run.vampT0 || 0) >= 1) { run.vampT0 = run.time; run.vampUsed = 0; }
+    const v = Math.min(0.5 * run.s.vamp, 3 - (run.vampUsed || 0));
+    if (v > 0) { heal(v, false); run.vampUsed = (run.vampUsed || 0) + v; }
+  }
   if (def.boss) {
     run.bossKills++; run.boss = null; playMusic('savas');
     emitGameEvent('bossKill', { king: !!def.king, name: def.name });
@@ -1169,7 +1174,7 @@ initBosses({
   scene, ARENA_R, player: () => player, enemies: () => enemies, cap: () => Q.cap,
   alive: () => enemies.reduce((n, x) => n + (x.state !== 'dead' ? 1 : 0), 0),
   reinforce: (n, elites) => queueReinforce(n, elites), wave: () => run.wave,
-  hurt: (d, atk) => hurtPlayer(d, (run && run.boss ? run.boss.def.name : 'Boss') + (atk ? ' — ' + atk : '')), shake: v => { shake = Math.max(shake, v); }, banner, play, turnTo, spawnEnemy,
+  hurt: (d, atk) => hurtPlayer(d, (run && run.boss ? run.boss.def.name : 'Boss') + (atk ? ' — ' + atk : '')), hurtEnv: (d, src) => hurtPlayer(d, src), shake: v => { shake = Math.max(shake, v); }, banner, play, turnTo, spawnEnemy,
   ringFx: spawnRingFx, burst: (p, n, c, s) => particles.emit(p, n, c, s),
 });
 function updateEnemy(e, dt) {
@@ -1297,12 +1302,7 @@ function updateWeapons(dt) {
           damageEnemy(e, dmg, tmpV2.subVectors(e.obj.position, pp).setY(0).normalize().clone(), true, 9);
         }
       }
-      if (aegis) {
-        for (const o of orbs) if (o.life > 0 && Math.hypot(o.m.position.x - g.position.x, o.m.position.z - g.position.z) < 0.9) {
-          o.life = 0; particles.emit(o.m.position, 5, MAGIC_COL, 3);
-        }
-        if (destroyBulletsNear(g.position.x, g.position.z, 0.9)) particles.emit(g.position, 4, MAGIC_COL, 3);   // boss mermileri de
-      }
+      // denge 9 Kas: Kutsal Siper artık büyü toplarını / boss mermilerini silmiyor (ortada durup izlemenin ana sebebiydi)
     });
   }
 
@@ -1467,9 +1467,23 @@ function updateReinforce(dt) {
 }
 const REINF_MIN = 5;
 const WAVE_OVERLAP = 40;  // bir dalga bu kadar saniyeden uzun sürerse sonraki dalga beklemeden gelir
+// Ateş Yağmuru (denge 9 Kas): 11. dalgadan sonra (boss yokken) oyuncunun durduğu yere uyarılı ateş alanı düşer,
+// 15. dalgadan sonra yakına bir tane daha → ortada durup otomatik silahları izlemek cezalanır. Hasar dalgayla büyür.
+function updateFireRain(dt) {
+  if (run.wave < 11 || run.boss || player.dead) return;
+  run.rainT = (run.rainT ?? 4) - dt;
+  if (run.rainT > 0) return;
+  const w = run.wave, am = run.mul || {}, pp = player.obj.position;
+  run.rainT = Math.max(3.5, 7 - (w - 11) * 0.25);
+  const hlv = (save.heroLevels && save.heroLevels[run.hero]) || 0;
+  const dmg = 8 * (1 + 0.08 * (w - 1)) * (1 + 0.05 * hlv) * (am.dmg || 1);
+  fireRain(pp.x, pp.z, 1.8, 1.3, dmg);
+  if (w >= 15) { const a = Math.random() * Math.PI * 2, d = 3 + Math.random() * 3; fireRain(pp.x + Math.cos(a) * d, pp.z + Math.sin(a) * d, 1.8, 1.6, dmg); }
+}
 function updateWaves(dt) {
   run.waveT += dt;
   updateReinforce(dt);
+  updateFireRain(dt);
   // Yavaş temizleyen oyuncuya baskı: süre dolunca sıradaki dalga üst üste biner (boss dalgalarında değil)
   if (!run.queue.length && run.waveT > WAVE_OVERLAP && run.wave < FINAL_WAVE - 1 && !run.boss && enemies.some(e => e.state !== 'dead')) {
     startWave();
@@ -1678,6 +1692,7 @@ function startRun(arenaOverride) {   // arenaOverride: bot/test için arenayı z
   setSilhouette(player, false);   // menüde kilitliyken siluet olup koşu sırasında açılan kahraman siyah kalmasın
   run = newRun();
   run.arena = ARENAS[arenaOverride] ? +arenaOverride : arenaPlayable(save.arena) ? save.arena : 1;
+  setMusicArena(run.arena);   // 2. arenada savaş müziği savas2 (sounds/sounds.js)
   AR.setArena(ARENAS[run.arena].shape);
   applyArenaScene(run.arena);
   if (ARENAS[run.arena].mul) run.mul = { ...ARENAS[run.arena].mul };

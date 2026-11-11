@@ -28,14 +28,29 @@ async function loadOne(name, url) {
     if (wantMusic === name && musicName !== name) playMusic(name);
   } catch { /* dosya yoksa sentez kalır */ }
 }
+// Bir efekte birden çok dosya verilebilir (dizi): her çalışta rastgele biri seçilir.
+const sfxVariants = {};   // ad -> yüklenmiş AudioBuffer listesi
+async function loadVariant(name, url) {
+  try {
+    const r = await fetch(url); if (!r.ok) return;
+    const ab = await r.arrayBuffer();
+    const b = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
+    (sfxVariants[name] ||= []).push(b);
+    bufs[name] = sfxVariants[name][0];
+  } catch { /* dosya yoksa sentez kalır */ }
+}
 function loadAll() {
-  for (const [n, f] of Object.entries(SFX_FILES)) loadOne(n, 'sounds/' + f);
+  for (const [n, f] of Object.entries(SFX_FILES)) {
+    if (Array.isArray(f)) f.forEach(x => loadVariant(n, 'sounds/' + x));
+    else loadOne(n, 'sounds/' + f);
+  }
   for (const [n, f] of Object.entries(MUSIC_FILES)) loadOne(n, 'sounds/' + f);
 }
 
 // Dosyadan efekt çal (küçük perde oynamasıyla tekrar hissi azalır). Bulunamazsa false.
 function playBuf(name, vol = 1, rate = 1) {
-  const b = bufs[name]; if (!b) return false;
+  const v = sfxVariants[name];
+  const b = v && v.length > 1 ? v[Math.floor(Math.random() * v.length)] : bufs[name]; if (!b) return false;
   const s = ctx.createBufferSource(); s.buffer = b;
   s.playbackRate.value = rate * (0.94 + Math.random() * 0.12);
   const g = ctx.createGain(); g.gain.value = vol;
@@ -44,7 +59,16 @@ function playBuf(name, vol = 1, rate = 1) {
 }
 
 // Müzik: 'menu', 'savas', 'boss' döngülü; 'zafer', 'yenilgi' tek sefer. null = sustur.
+// Bölüme göre savaş müziği: 2. arenada 'savas' yerine (varsa) 'savas2' çalar.
+let musicArena = 1;
+export function setMusicArena(n) { musicArena = n || 1; if (wantMusic) playMusic(wantMusic); }
+function arenaTrack(name) {
+  if (name === 'savas' && musicArena === 2 && MUSIC_FILES.savas2) return 'savas2';
+  return name;
+}
+
 export function playMusic(name) {
+  name = arenaTrack(name && name.replace(/2$/, ''));
   wantMusic = name;
   if (!ctx || musicName === name) return;
   const t = ctx.currentTime;

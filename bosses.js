@@ -75,7 +75,11 @@ function killHazardsOf(e) {
   for (let i = hazards.length - 1; i >= 0; i--) if (hazards[i].owner === e) hazards.splice(i, 1);
 }
 
-// Kutsal Siper (aegis) kalkanları: yakındaki boss mermilerini yok eder → yok edilen sayısı
+// Ateş Yağmuru (game.js updateFireRain): sahibi olmayan uyarılı daire; hasar kaynağı 'Ateş Yağmuru'
+export function fireRain(x, z, r, delay, dmg) {
+  return circle(null, x, z, r, delay, dmg, { env: 'Ateş Yağmuru', fx: 0xff7a1a });
+}
+// (Artık kullanılmıyor, 9 Kas) Kutsal Siper kalkanları eskiden yakındaki boss mermilerini yok ediyordu
 export function destroyBulletsNear(x, z, r) {
   let n = 0;
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -101,7 +105,9 @@ export function updateBossFx(dt) {
     if (h.k === 'c') {
       if (h.t < h.delay) continue;
       if (!h.safe) {
-        if (!pl.dead && Math.hypot(pp.x - h.x, pp.z - h.z) < h.r + 0.25) A.hurt(h.dmg, h.spikes ? 'Kemik Dikenleri' : 'Yer Darbesi');
+        if (!pl.dead && Math.hypot(pp.x - h.x, pp.z - h.z) < h.r + 0.25) {
+          if (h.env) A.hurtEnv(h.dmg, h.env); else A.hurt(h.dmg, h.spikes ? 'Kemik Dikenleri' : 'Yer Darbesi');
+        }
         A.ringFx(h, h.r, h.fx || 0xff5040);
       }
       if (h.spikes) spawnSpikes(h.x, h.z, h.r, h.spikes);

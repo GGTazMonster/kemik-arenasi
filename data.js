@@ -21,6 +21,13 @@ export const ENEMIES = {
 
 export const FINAL_WAVE = 20;
 
+// Dalga başına düşman güçlenmesi (1. dalga = x1). 10. dalgaya kadar eski eğri (başlangıç iyi, 10. dalga Nekromant duvarı aynı);
+// 10. dalgadan sonra eğim artar (denge 10 Kas: geç oyun fazla kolaydı — veride 11. dalgadan sonra can hep %90+, dalgalar 20-30 sn).
+// Karşılaştırma: Brotato 20. dalgada ortalama can x11, hasar x16 (hasar/dalga her düşmanda 0.6-1.15 sabit); bizde eskiden can x5, hasar x2,5.
+export const WAVE_SCALE = { hp: 0.22, dmg: 0.08, lateFrom: 10, lateHp: 0.40, lateDmg: 0.16 };
+export const waveHpMul = (w, S = WAVE_SCALE) => 1 + S.hp * (w - 1) + Math.max(0, w - S.lateFrom) * (S.lateHp - S.hp);
+export const waveDmgMul = (w, S = WAVE_SCALE) => 1 + S.dmg * (w - 1) + Math.max(0, w - S.lateFrom) * (S.lateDmg - S.dmg);
+
 // Elit düşman çarpanları (Dalga 3'ten itibaren; sandık düşürür)
 export const ELITE = { hp: 6, dmg: 1.4, scale: 1.35, xp: 5 };
 
@@ -43,7 +50,7 @@ export const HEROES = {
 // Silah evrimleri: ana silah 5. seviye + gereken pasif ≥1 → seviye atlarken / sandıktan çıkar
 export const EVOS = [
   { id: 'storm', base: 'dagger', req: 'crit',  icon: '🌪️', name: 'Ölüm Fırtınası', desc: 'Hançerler tüm düşmanları deler, +3 hançer, 2x atış hızı' },
-  { id: 'aegis', base: 'orbit',  req: 'hp',    icon: '🔆', name: 'Kutsal Siper',   desc: 'Kalkanlar büyür, büyü toplarını yok eder, 2x hasar' },
+  { id: 'aegis', base: 'orbit',  req: 'hp',    icon: '🔆', name: 'Kutsal Siper',   desc: 'Kalkanlar büyür, daha geniş vurur, 2x hasar' },   // denge 9 Kas: artık mermi silmiyor
   { id: 'sun',   base: 'nova',   req: 'regen', icon: '☀️', name: 'İlahi Patlama',  desc: 'Dalga 1.6x geniş, 2x hasar, her patlamada 4 can' },
 ];
 
@@ -70,9 +77,9 @@ export const UPGRADES = [
   { id: 'area',   icon: '🌀', name: 'Geniş Savuruş',    max: 5, desc: () => 'Saldırı menzili ve alanı +%15' },
   { id: 'speed',  icon: '👢', name: 'Hafif Adımlar',    max: 5, desc: () => 'Hareket hızı +%10' },
   { id: 'hp',     icon: '❤️', name: 'Demir Yürek',      max: 5, desc: () => 'Maks. can +25 ve 25 can yeniler' },
-  { id: 'regen',  icon: '✚',  name: 'Yenilenme',        max: 5, desc: () => 'Saniyede +0,6 can yeniler' },
+  { id: 'regen',  icon: '✚',  name: 'Yenilenme',        max: 5, desc: () => 'Saniyede +0,4 can yeniler' },
   { id: 'crit',   icon: '🎯', name: 'Kritik Vuruş',     max: 5, desc: () => '+%8 kritik şansı (2x hasar)' },
-  { id: 'vamp',   icon: '🩸', name: 'Kan Emici',        max: 3, desc: () => 'Her öldürmede +1 can' },
+  { id: 'vamp',   icon: '🩸', name: 'Kan Emici',        max: 3, desc: () => 'Her öldürmede +0,5 can (en çok 3 can/sn)' },
   { id: 'magnet', icon: '🧲', name: 'Mıknatıs',         max: 3, desc: () => 'Toplama alanı +%60' },
   { id: 'dagger', icon: '🗡️', name: 'Hançer Yağmuru',   max: 5, desc: l => l === 0 ? 'En yakın düşmana otomatik hançer fırlatır' : '+1 hançer, daha sık atış' },
   { id: 'orbit',  icon: '🛡️', name: 'Dönen Kalkanlar',  max: 5, desc: l => l === 0 ? 'Etrafında dönen ve çarpan bir kalkan' : '+1 kalkan, +%15 hasar' },

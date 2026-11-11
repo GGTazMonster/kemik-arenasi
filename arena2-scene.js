@@ -41,32 +41,74 @@ function roundRectShape(A, B, r) {
   return s;
 }
 
-// Zemin dokusu: koyu mor-kömür taş levhalar + kor çatlakları (ayrı ışıma dokusu)
+// Zemin dokusu: perçinli DEMİR PLAKALAR (Grafik Tasarım, 10 Kas; kullanıcı seçti — eski mor-kızıl taş "çok kırmızı, çok koyu, çok mor" bulundu).
+// 4x4 plaka (doku 16x16 birim → plaka 4 birim), kenar ışık/gölge, perçinler, dama düzeninde kaymaz desen, pas lekeleri, çizikler,
+// birkaç sönük kor çatlağı (asıl parıltı lav kanallarında). Deneme sayfası: _deneme/imza-renk.html?floor=demir (_deneme/zemin-dokusu.js).
 function floorTextures() {
-  const S = 512, c = document.createElement('canvas'), e = document.createElement('canvas');
+  const S = 1024, TILE = 16, c = document.createElement('canvas'), e = document.createElement('canvas');
   c.width = c.height = e.width = e.height = S;
   const g = c.getContext('2d'), h = e.getContext('2d');
-  g.fillStyle = '#1e1622'; g.fillRect(0, 0, S, S);
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const wrap = (ctx, fn) => { for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { ctx.save(); ctx.translate(dx, dy); fn(); ctx.restore(); } };   // dikişsiz
+  const BASE = [84, 88, 96], col = (k = 0) => { const d = (rnd() - 0.5) * 10 + k; return `rgb(${BASE[0] + d | 0},${BASE[1] + d | 0},${BASE[2] + d | 0})`; };
+  g.fillStyle = '#1c1e22'; g.fillRect(0, 0, S, S);
   h.fillStyle = '#000'; h.fillRect(0, 0, S, S);
-  const n = 4, s = S / n;
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    const off = (y % 2) * s / 2, v = 52 + Math.random() * 18;
-    g.fillStyle = `rgb(${v + 8},${v - 6},${v + 14})`;
-    for (const dx of [0, -S]) g.fillRect(x * s + off + 4 + dx, y * s + 4, s - 8, s - 8);
-  }
-  for (let i = 0; i < 3000; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.18})`; g.fillRect(Math.random() * S, Math.random() * S, 2, 2); }
-  // Kor çatlakları: kırık çizgiler (doku sarılabilsin diye kenarlardan uzak)
-  for (let k = 0; k < 4; k++) {
-    let x = 60 + Math.random() * (S - 120), y = 60 + Math.random() * (S - 120), a = Math.random() * Math.PI * 2;
-    const len = 3 + (Math.random() * 5 | 0);
-    for (const [ctx, col, w] of [[g, '#5a2a20', 2], [h, '#c84a10', 2.4]]) {
-      ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y);
-      let px = x, py = y, pa = a;
-      for (let i = 0; i < len; i++) { pa += (Math.random() - 0.5) * 1.2; px += Math.cos(pa) * 14; py += Math.sin(pa) * 14; ctx.lineTo(px, py); }
-      ctx.stroke();
+  const n = 4, s = S / n, G = 6;
+  for (let yy = 0; yy < n; yy++) for (let xx = 0; xx < n; xx++) {
+    const X = xx * s + G / 2, Y = yy * s + G / 2, W = s - G, H = s - G;
+    g.fillStyle = col(); g.fillRect(X, Y, W, H);
+    const gr = g.createLinearGradient(X, Y, X + W, Y + H);
+    gr.addColorStop(0, 'rgba(255,245,230,0.06)'); gr.addColorStop(1, 'rgba(0,0,0,0.16)');
+    g.fillStyle = gr; g.fillRect(X, Y, W, H);
+    g.fillStyle = 'rgba(255,240,220,0.22)'; g.fillRect(X, Y, W, 3); g.fillRect(X, Y, 3, H);
+    g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(X, Y + H - 4, W, 4); g.fillRect(X + W - 4, Y, 4, H);
+    if ((xx + yy) % 2 === 0) {   // kaymaz baklava deseni
+      g.save(); g.beginPath(); g.rect(X + 14, Y + 14, W - 28, H - 28); g.clip();
+      for (let a = -H; a < W + H; a += 22) for (let b = 0; b < H; b += 22) {
+        const px = X + a + (b / 22 % 2) * 11, py = Y + b;
+        g.fillStyle = 'rgba(255,240,220,0.10)'; g.fillRect(px, py, 9, 2);
+        g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(px, py + 2, 9, 2);
+      }
+      g.restore();
     }
+    for (const [fx, fy] of [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]]) {   // perçinler
+      const rx = X + 10 + fx * (W - 20), ry = Y + 10 + fy * (H - 20);
+      g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.arc(rx + 1.5, ry + 1.5, 5, 0, 7); g.fill();
+      g.fillStyle = col(30); g.beginPath(); g.arc(rx, ry, 4.5, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,250,240,0.35)'; g.beginPath(); g.arc(rx - 1.5, ry - 1.5, 1.8, 0, 7); g.fill();
+    }
+    for (let i = 0; i < 3; i++) { const x = X + rnd() * W, y = Y + rnd() * H, r = 20 + rnd() * 40;   // pas lekeleri
+      const pg = g.createRadialGradient(x, y, 0, x, y, r); pg.addColorStop(0, 'rgba(120,60,30,0.22)'); pg.addColorStop(1, 'rgba(120,60,30,0)');
+      g.fillStyle = pg; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
   }
-  const mk = cv => { const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 11, 1 / 11); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+  for (let i = 0; i < 160; i++) { const x = rnd() * S, y = rnd() * S, a = rnd() * Math.PI, l = 10 + rnd() * 40;   // çizikler
+    g.strokeStyle = `rgba(${rnd() < 0.5 ? '255,245,230' : '0,0,0'},0.12)`; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+  for (let i = 0; i < 14000; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '0,0,0' : '255,240,225'},${rnd() * 0.06})`; g.fillRect(rnd() * S, rnd() * S, 2, 2); }
+  // Sönük kor çatlakları (2 adet, dallanan)
+  const cracks = [];
+  const walk = (x, y, a, k, w, depth) => {
+    const pts = [[x, y]];
+    for (let i = 0; i < k; i++) {
+      a += (rnd() - 0.5) * 1.1; x += Math.cos(a) * (10 + rnd() * 10); y += Math.sin(a) * (10 + rnd() * 10); pts.push([x, y]);
+      if (depth < 2 && rnd() < 0.18) walk(x, y, a + (rnd() < 0.5 ? 1 : -1) * (0.6 + rnd() * 0.6), 3 + (rnd() * 5 | 0), w * 0.6, depth + 1);
+    }
+    cracks.push([pts, w]);
+  };
+  for (let k = 0; k < 2; k++) walk(rnd() * S, rnd() * S, rnd() * Math.PI * 2, 5 + (rnd() * 8 | 0), 2.5 + rnd() * 1.5, 0);
+  const stroke = (ctx, pts, cl, w, blur) => wrap(ctx, () => {
+    ctx.strokeStyle = cl; ctx.lineWidth = w; ctx.lineCap = ctx.lineJoin = 'round';
+    ctx.shadowColor = blur ? cl : 'transparent'; ctx.shadowBlur = blur || 0;
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke();
+  });
+  for (const [pts, w] of cracks) {
+    stroke(g, pts, '#1e0e08', w + 3, 0);
+    stroke(g, pts, '#a8380c', w * 0.6, 0);
+    stroke(h, pts, 'rgba(112,35,6,0.22)', w * 4, 10);
+    stroke(h, pts, 'rgb(178,134,67)', w * 0.6, 4);
+  }
+  const mk = cv => { const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / TILE, 1 / TILE); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
   return { map: mk(c), emissiveMap: mk(e) };
 }
 function lavaTexture() {
@@ -111,7 +153,7 @@ export function createForge(scene, gateOpenings) {
   // ---------- Zemin + dış karanlık ----------
   const tex = floorTextures();
   const floorGeo = new THREE.ShapeGeometry(roundRectShape(hw + 2, hd + 2, rc + 2), 16);
-  const floorMat = new THREE.MeshLambertMaterial({ map: tex.map, emissiveMap: tex.emissiveMap, emissive: 0xff5a10, emissiveIntensity: 1.1, color: 0xc0a8d0 });
+  const floorMat = new THREE.MeshLambertMaterial({ map: tex.map, emissiveMap: tex.emissiveMap, emissive: 0xff5a10, emissiveIntensity: 1.1, color: 0xffffff });   // demir plaka: renk dokudan (eski 0xc0a8d0 morla çarpıyordu)
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; group.add(floor);
   const outer = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshBasicMaterial({ color: 0x120a12 }));
